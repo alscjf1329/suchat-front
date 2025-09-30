@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* 라이트 테마 색상 변수 */
+:root {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F9FAFB;
+  --divider: #E5E7EB;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  --message-send: #0064FF;
+  --message-receive: #F3F4F6;
+  --icon-default: #6B7280;
+  --icon-active: #0064FF;
+}
+
+/* 다크 테마 색상 변수 */
+.dark {
+  color-scheme: dark;
+  --bg-primary: #111827;
+  --bg-secondary: #1F2937;
+  --divider: #374151;
+  --text-primary: #FFFFFF;
+  --text-secondary: #9CA3AF;
+  --message-send: #0064FF;
+  --message-receive: #1F2937;
+  --icon-default: #9CA3AF;
+  --icon-active: #0064FF;
+}
+
+/* 전역 배경 설정 */
+.min-h-screen {
+  background-color: var(--bg-primary);
+}
+
+/* 헤더 스타일 */
+header {
+  background-color: var(--bg-primary);
+  border-color: var(--divider);
+}
+
+/* 텍스트 색상 */
+.text-primary {
+  color: var(--text-primary);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+/* 배경 색상 */
+.bg-primary {
+  background-color: var(--bg-primary);
+}
+
+.bg-secondary {
+  background-color: var(--bg-secondary);
+}
+
+/* 구분선 */
+.border-divider {
+  border-color: var(--divider);
+}
+
+/* 아이콘 색상 */
+.icon-default {
+  color: var(--icon-default);
+}
+
+.icon-active {
+  color: var(--icon-active);
+}
+
+/* 메시지 버블 */
+.message-send {
+  background-color: var(--message-send);
+  color: white;
+}
+
+.message-receive {
+  background-color: var(--message-receive);
+  color: var(--text-primary);
+}
+
