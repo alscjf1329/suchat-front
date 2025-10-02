@@ -1,8 +1,7 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { Button } from './index'
-import { useTheme } from '@/contexts/ThemeContext'
 import { useTranslation } from '@/contexts/I18nContext'
 
 interface SidebarProps {
@@ -11,15 +10,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
-  const { theme, setTheme, actualTheme } = useTheme()
   const { t } = useTranslation()
-  const [showThemeMenu, setShowThemeMenu] = useState(false)
-
-  const themes = [
-    { value: 'light', label: t('theme.light'), icon: '☀' },
-    { value: 'dark', label: t('theme.dark'), icon: '🌙' },
-    { value: 'system', label: t('theme.system'), icon: '💻' }
-  ] as const
 
   const menuItems = [
     { label: t('sidebar.profile'), icon: '👤', action: () => console.log('프로필') },
@@ -34,13 +25,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       {/* 오버레이 백드롭 */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/50 transition-opacity duration-300"
           onClick={onClose}
         />
       )}
       
       {/* 사이드바 */}
-      <div className={`fixed left-0 top-0 h-full w-80 bg-primary border-r border-divider z-50 transform transition-transform duration-300 ease-in-out ${
+      <div className={`fixed left-0 top-0 h-full w-full max-w-80 bg-primary border-r border-divider transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
         {/* 헤더 */}
@@ -70,54 +61,6 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
               <span className="text-lg font-medium">{item.label}</span>
             </button>
           ))}
-          
-          {/* 테마 변경 메뉴 */}
-          <div className="relative">
-            <button
-              onClick={() => setShowThemeMenu(!showThemeMenu)}
-              className="w-full flex items-center justify-between px-4 py-4 text-left hover:bg-secondary transition-colors duration-200 text-primary rounded-xl"
-            >
-              <div className="flex items-center">
-                <span className="text-2xl mr-4">🎨</span>
-                <span className="text-lg font-medium">테마</span>
-              </div>
-              <span className="text-secondary">
-                {showThemeMenu ? '▲' : '▼'}
-              </span>
-            </button>
-            
-            {showThemeMenu && (
-              <div className="ml-4 mt-2 space-y-1">
-                {themes.map((themeOption) => (
-                  <button
-                    key={themeOption.value}
-                    onClick={() => {
-                      setTheme(themeOption.value)
-                      setShowThemeMenu(false)
-                    }}
-                    className={`w-full flex items-center px-4 py-3 text-left hover:bg-secondary transition-colors duration-200 rounded-lg ${
-                      theme === themeOption.value 
-                        ? 'text-[#0064FF] font-medium' 
-                        : 'text-primary'
-                    }`}
-                  >
-                    <span className="text-lg mr-3">{themeOption.icon}</span>
-                    <div>
-                      <div className="text-sm">{themeOption.label}</div>
-                      {themeOption.value === 'system' && (
-                        <div className="text-xs text-secondary">
-                          {t('theme.current')}: {actualTheme === 'light' ? t('theme.light') : t('theme.dark')}
-                        </div>
-                      )}
-                    </div>
-                    {theme === themeOption.value && (
-                      <span className="ml-auto text-[#0064FF]">✓</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         {/* 하단 사용자 정보 */}

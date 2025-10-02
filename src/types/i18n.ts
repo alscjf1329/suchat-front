@@ -41,6 +41,81 @@ export interface TranslationKeys {
     friends: string
     chats: string
     settings: string
+    messagePlaceholder: string
+    online: string
+    typing: string
+    send: string
+    call: string
+    video: string
+    more: string
+    attach: string
+    emoji: string
+  }
+  
+  // 친구 페이지
+  friends: {
+    title: string
+    searchPlaceholder: string
+    addFriend: string
+    online: string
+    offline: string
+    lastSeen: string
+    noFriends: string
+    addFirstFriend: string
+    friendRequest: string
+    accept: string
+    decline: string
+    remove: string
+    block: string
+    unblock: string
+    sendMessage: string
+    profile: string
+  }
+  
+  // 설정 페이지
+  settings: {
+    title: string
+    profile: string
+    account: string
+    privacy: string
+    notifications: string
+    appearance: string
+    language: string
+    about: string
+    logout: string
+    deleteAccount: string
+    changePassword: string
+    changeEmail: string
+    profilePicture: string
+    displayName: string
+    status: string
+    phoneNumber: string
+    birthday: string
+    location: string
+    bio: string
+    onlineStatus: string
+    readReceipts: string
+    lastSeen: string
+    profileVisibility: string
+    everyone: string
+    friends: string
+    nobody: string
+    pushNotifications: string
+    messageNotifications: string
+    friendRequestNotifications: string
+    soundNotifications: string
+    vibrationNotifications: string
+    theme: string
+    fontSize: string
+    compactMode: string
+    showAvatars: string
+    showTimestamps: string
+    appVersion: string
+    termsOfService: string
+    privacyPolicy: string
+    contactSupport: string
+    rateApp: string
+    shareApp: string
   }
   
   // 사이드바 메뉴

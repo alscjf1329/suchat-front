@@ -144,7 +144,7 @@ export default function RootLayout({
       <body className={`${inter.className} antialiased`}>
         <I18nProvider>
           <ThemeProvider>
-            <div id="root" className="min-h-screen">
+            <div id="root" className="min-h-screen w-full">
               {children}
             </div>
           </ThemeProvider>

@@ -81,3 +81,15 @@ header {
   color: var(--text-primary);
 }
 
+/* 스크롤바 숨기기 유틸리티 클래스 */
+.scrollbar-hide {
+  /* Firefox */
+  scrollbar-width: none;
+  /* Safari and Chrome */
+  -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+

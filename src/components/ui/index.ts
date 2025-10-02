@@ -1,8 +1,6 @@
 export { default as Input } from './Input'
 export { default as Button } from './Button'
 export { default as FormField } from './FormField'
-export { default as ThemeMenu } from './ThemeMenu'
-export { default as SidebarMenu } from './SidebarMenu'
 export { default as Sidebar } from './Sidebar'
 export { default as LanguageSwitcher } from './LanguageSwitcher'
 export { default as BottomNavigation, type NavigationItem } from './BottomNavigation'

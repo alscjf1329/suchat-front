@@ -27,11 +27,11 @@ export default function ChatListPage() {
   )
 
   return (
-    <div className="min-h-screen bg-primary">
+    <div className="h-screen w-full bg-primary flex flex-col">
       {/* 헤더 */}
-      <header className="bg-primary border-b border-divider px-4 py-4 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div className="w-8"></div> {/* 왼쪽 공간 */}
+      <header className="bg-primary border-b border-divider px-2 h-16 flex items-center">
+        <div className="flex items-center justify-between w-full">
+          <div className="w-8"></div>
           <h1 className="text-lg font-semibold text-primary">SuChat</h1>
           <Button variant="ghost" onClick={handleLogout} className="p-2">
             <span className="text-secondary text-lg">↗</span>
@@ -40,7 +40,7 @@ export default function ChatListPage() {
       </header>
 
       {/* 검색 바 */}
-      <div className="px-4 py-4">
+      <div className="px-2 py-3 bg-primary">
         <Input
           type="text"
           value={searchQuery}
@@ -51,33 +51,37 @@ export default function ChatListPage() {
       </div>
 
       {/* 채팅 목록 */}
-      <div className="flex-1 px-4 pb-24">
+      <div className="flex-1 py-2 overflow-y-auto scrollbar-hide">
         <div className="space-y-2">
           {filteredRooms.map((room) => (
-            <div key={room.id} className="flex items-center space-x-3 py-3 px-4 rounded-xl hover:bg-secondary cursor-pointer transition-all duration-200 shadow-sm bg-primary border border-divider">
+            <div 
+              key={room.id} 
+              onClick={() => router.push(`/chat/${room.id}`)}
+              className="flex items-center space-x-2 py-3 px-1 mx-1 rounded-xl hover:bg-secondary cursor-pointer transition-all duration-200 bg-primary border border-divider"
+            >
               {/* 아바타 */}
-              <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center flex-shrink-0 shadow-md">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center flex-shrink-0">
                 <span className="text-white font-medium text-sm">
                   {room.name.charAt(0)}
                 </span>
               </div>
               
               {/* 채팅 정보 */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-sm font-medium text-primary truncate">
+              <div className="flex-1">
+                <div className="flex items-center mb-1">
+                  <h3 className="text-sm font-medium text-primary flex-1">
                     {room.name}
                   </h3>
-                  <span className="text-xs text-secondary">
+                  <span className="text-xs text-secondary ml-2">
                     {room.time}
                   </span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-secondary truncate">
+                <div className="flex items-center">
+                  <p className="text-sm text-secondary flex-1">
                     {room.lastMessage}
                   </p>
                   {room.unread > 0 && (
-                    <div className="bg-[#0064FF] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center ml-2 flex-shrink-0 shadow-md">
+                    <div className="bg-[#0064FF] text-white text-xs rounded-full w-5 h-5 flex items-center justify-center ml-2 flex-shrink-0">
                       {room.unread}
                     </div>
                   )}
@@ -87,12 +91,6 @@ export default function ChatListPage() {
           ))}
         </div>
       </div>
-
-      {/* 사이드바 */}
-      {/* <Sidebar 
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-      /> */}
 
       {/* 하단 네비게이션 바 */}
       <BottomNavigation />
