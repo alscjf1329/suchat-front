@@ -28,6 +28,31 @@ const zh: TranslationKeys = {
     signUp: '注册'
   },
   
+  signup: {
+    title: 'SuChat',
+    subtitle: '创建新账户开始聊天',
+    name: '姓名',
+    email: '邮箱',
+    password: '密码',
+    confirmPassword: '确认密码',
+    phone: '电话号码',
+    birthday: '生日',
+    namePlaceholder: '请输入姓名',
+    emailPlaceholder: '请输入邮箱',
+    passwordPlaceholder: '请输入密码',
+    confirmPasswordPlaceholder: '请再次输入密码',
+    phonePlaceholder: '请输入电话号码（可选）',
+    signupButton: '注册',
+    signupLoading: '注册中...',
+    haveAccount: '已有账户？',
+    loginLink: '登录',
+    termsText: '注册即表示同意',
+    termsLink: '服务条款',
+    and: '和',
+    privacyLink: '隐私政策',
+    agreeText: '。'
+  },
+  
   chat: {
     title: 'SuChat',
     searchPlaceholder: '搜索聊天',

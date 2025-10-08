@@ -28,6 +28,31 @@ const en: TranslationKeys = {
     signUp: 'Sign Up'
   },
   
+  signup: {
+    title: 'SuChat',
+    subtitle: 'Create a new account to start chatting',
+    name: 'Name',
+    email: 'Email',
+    password: 'Password',
+    confirmPassword: 'Confirm Password',
+    phone: 'Phone Number',
+    birthday: 'Birthday',
+    namePlaceholder: 'Enter your name',
+    emailPlaceholder: 'Enter your email',
+    passwordPlaceholder: 'Enter your password',
+    confirmPasswordPlaceholder: 'Confirm your password',
+    phonePlaceholder: 'Enter your phone number (optional)',
+    signupButton: 'Sign Up',
+    signupLoading: 'Creating account...',
+    haveAccount: 'Already have an account?',
+    loginLink: 'Sign In',
+    termsText: 'By signing up, you agree to our',
+    termsLink: 'Terms of Service',
+    and: 'and',
+    privacyLink: 'Privacy Policy',
+    agreeText: '.'
+  },
+  
   chat: {
     title: 'SuChat',
     searchPlaceholder: 'Search chats',

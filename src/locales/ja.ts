@@ -28,6 +28,31 @@ const ja: TranslationKeys = {
     signUp: 'サインアップ'
   },
   
+  signup: {
+    title: 'SuChat',
+    subtitle: '新しいアカウントを作成してチャットを始めましょう',
+    name: '名前',
+    email: 'メールアドレス',
+    password: 'パスワード',
+    confirmPassword: 'パスワード確認',
+    phone: '電話番号',
+    birthday: '誕生日',
+    namePlaceholder: '名前を入力してください',
+    emailPlaceholder: 'メールアドレスを入力してください',
+    passwordPlaceholder: 'パスワードを入力してください',
+    confirmPasswordPlaceholder: 'パスワードを再入力してください',
+    phonePlaceholder: '電話番号を入力してください（任意）',
+    signupButton: 'サインアップ',
+    signupLoading: 'アカウント作成中...',
+    haveAccount: 'すでにアカウントをお持ちですか？',
+    loginLink: 'サインイン',
+    termsText: 'サインアップすることで、',
+    termsLink: '利用規約',
+    and: 'および',
+    privacyLink: 'プライバシーポリシー',
+    agreeText: 'に同意したことになります。'
+  },
+  
   chat: {
     title: 'SuChat',
     searchPlaceholder: 'チャットを検索',

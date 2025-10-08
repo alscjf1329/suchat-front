@@ -1,9 +1,10 @@
 import React from 'react'
 
 interface InputProps {
-  type?: 'text' | 'email' | 'password' | 'number' | 'tel'
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'date'
   value: string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  onKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void
   placeholder?: string
   label?: string
   icon?: React.ReactNode
@@ -17,6 +18,7 @@ export default function Input({
   type = 'text',
   value,
   onChange,
+  onKeyPress,
   placeholder,
   label,
   icon,
@@ -47,6 +49,7 @@ export default function Input({
           type={type}
           value={value}
           onChange={onChange}
+          onKeyPress={onKeyPress}
           placeholder={placeholder}
           required={required}
           disabled={disabled}

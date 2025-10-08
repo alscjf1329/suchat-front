@@ -4,14 +4,8 @@ import { useState, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useTranslation } from '@/contexts/I18nContext'
 import { Input, Button } from '@/components/ui'
-
-interface Message {
-  id: number
-  text: string
-  sender: 'me' | 'other'
-  time: string
-  isRead?: boolean
-}
+import { getCurrentUser } from '@/lib/api'
+import socketClient, { Message as SocketMessage, ChatRoom } from '@/lib/socket'
 
 export default function ChatRoomPage() {
   const { t } = useTranslation()
@@ -19,65 +13,111 @@ export default function ChatRoomPage() {
   const params = useParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
-  const [isTyping, setIsTyping] = useState(false)
+  const [messages, setMessages] = useState<SocketMessage[]>([])
+  const [roomInfo, setRoomInfo] = useState<ChatRoom | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [unreadCount, setUnreadCount] = useState(0)
+  const currentUser = getCurrentUser()
 
   // URL에서 채팅방 ID 가져오기
   const chatId = params?.id as string
-  
-  // 채팅방 이름 매핑
-  const chatRoomNames: { [key: string]: string } = {
-    '1': '김철수',
-    '2': '이영희', 
-    '3': '박민수',
-    '4': '정수진',
-    '5': '최동현',
-    '6': '한지영'
-  }
-  
-  const chatName = chatRoomNames[chatId] || `채팅방 ${chatId}`
 
-  // 샘플 메시지 데이터
-  const [messages, setMessages] = useState<Message[]>([
-    { id: 1, text: '안녕하세요!', sender: 'other', time: '10:30', isRead: true },
-    { id: 2, text: '안녕하세요! 반갑습니다 😊', sender: 'me', time: '10:31', isRead: true },
-    { id: 3, text: '오늘 날씨가 정말 좋네요', sender: 'other', time: '10:32', isRead: true },
-    { id: 4, text: '네, 맞아요! 산책하기 좋은 날씨입니다', sender: 'me', time: '10:33', isRead: true },
-    { id: 5, text: '혹시 오늘 시간 있으시면 커피 한 잔 어떠세요?', sender: 'other', time: '10:35', isRead: false },
-  ])
+  useEffect(() => {
+    if (!currentUser) {
+      router.push('/login')
+      return
+    }
+
+    // Socket 연결
+    const socket = socketClient.connect()
+
+    // 채팅방 참여
+    joinChatRoom()
+
+    // 새 메시지 수신 시 자동 읽음 처리
+    const handleNewMessageWithRead = (newMessage: SocketMessage) => {
+      setMessages(prev => [...prev, newMessage])
+      
+      // 자동 읽음 처리
+      if (currentUser && chatId) {
+        socketClient.markAsRead(chatId, currentUser.id, newMessage.id)
+          .catch(err => console.error('읽음 처리 실패:', err))
+      }
+    }
+
+    // Socket 이벤트 리스너 등록
+    socketClient.onNewMessage(handleNewMessageWithRead)
+    socketClient.onRoomMessages((roomMessages) => {
+      // 백엔드에서 DESC로 오므로 reverse() 필요
+      const orderedMessages = roomMessages.reverse()
+      setMessages(orderedMessages)
+      setIsLoading(false)
+      
+      // 채팅방 입장 시 마지막 메시지를 읽음 처리 ⭐
+      if (orderedMessages.length > 0 && currentUser && chatId) {
+        const lastMessage = orderedMessages[orderedMessages.length - 1]
+        console.log('📖 읽음 처리 시도:', {
+          roomId: chatId,
+          userId: currentUser.id,
+          messageId: lastMessage.id,
+          content: lastMessage.content,
+          timestamp: lastMessage.timestamp
+        })
+        socketClient.markAsRead(chatId, currentUser.id, lastMessage.id)
+          .then(() => console.log('✅ 읽음 처리 성공'))
+          .catch(err => console.error('❌ 입장 시 읽음 처리 실패:', err))
+      }
+    })
+    socketClient.onRoomInfo((room) => {
+      setRoomInfo(room)
+    })
+    socketClient.onUnreadCount((data) => {
+      setUnreadCount(data.count)
+    })
+
+    return () => {
+      // Socket 이벤트 리스너만 제거 (채팅방 참여는 유지)
+      socketClient.offNewMessage()
+      socketClient.offRoomMessages()
+      socketClient.offRoomInfo()
+      socketClient.offUnreadCount()
+    }
+  }, [chatId])
+
+  // 명시적으로 채팅방 나가기 (추후 구현)
+  const handleLeaveRoom = async () => {
+    if (currentUser && chatId) {
+      await socketClient.leaveRoom(chatId, currentUser.id)
+      router.push('/chat')
+    }
+  }
+
+  const joinChatRoom = async () => {
+    if (!currentUser || !chatId) return
+
+    try {
+      await socketClient.joinRoom(chatId, currentUser.id)
+    } catch (error) {
+      console.error('채팅방 참여 실패:', error)
+      router.push('/chat')
+    }
+  }
 
   // 메시지 전송
-  const handleSendMessage = () => {
-    if (message.trim()) {
-      const newMessage: Message = {
-        id: messages.length + 1,
-        text: message.trim(),
-        sender: 'me',
-        time: new Date().toLocaleTimeString('ko-KR', { 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }),
-        isRead: false
-      }
+  const handleSendMessage = async () => {
+    if (!message.trim() || !currentUser || !chatId) return
+
+    try {
+      await socketClient.sendMessage({
+        roomId: chatId,
+        userId: currentUser.id,
+        content: message.trim(),
+        type: 'text'
+      })
       
-      setMessages(prev => [...prev, newMessage])
       setMessage('')
-      
-      // 상대방 타이핑 시뮬레이션
-      setIsTyping(true)
-      setTimeout(() => {
-        setIsTyping(false)
-        const replyMessage: Message = {
-          id: messages.length + 2,
-          text: '네, 좋은 아이디어네요!',
-          sender: 'other',
-          time: new Date().toLocaleTimeString('ko-KR', { 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          }),
-          isRead: false
-        }
-        setMessages(prev => [...prev, replyMessage])
-      }, 2000)
+    } catch (error) {
+      console.error('메시지 전송 실패:', error)
     }
   }
 
@@ -92,35 +132,39 @@ export default function ChatRoomPage() {
   // 메시지 목록 자동 스크롤
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isTyping])
+  }, [messages])
+
+  const formatTime = (date: Date) => {
+    const d = new Date(date)
+    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+  }
 
   // 메시지 렌더링
-  const renderMessage = (msg: Message) => (
-    <div
-      key={msg.id}
-      className={`flex ${msg.sender === 'me' ? 'justify-end' : 'justify-start'} mb-4`}
-    >
+  const renderMessage = (msg: SocketMessage) => {
+    const isMyMessage = msg.userId === currentUser?.id
+    
+    return (
       <div
-        className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
-          msg.sender === 'me'
-            ? 'bg-[#0064FF] text-white rounded-br-md'
-            : 'bg-secondary text-primary rounded-bl-md'
-        }`}
+        key={msg.id}
+        className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-4`}
       >
-        <p className="text-sm">{msg.text}</p>
-        <div className={`text-xs mt-1 ${
-          msg.sender === 'me' ? 'text-blue-100' : 'text-secondary'
-        }`}>
-          {msg.time}
-          {msg.sender === 'me' && (
-            <span className="ml-1">
-              {msg.isRead ? '✓✓' : '✓'}
-            </span>
-          )}
+        <div
+          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+            isMyMessage
+              ? 'bg-[#0064FF] text-white rounded-br-md'
+              : 'bg-secondary text-primary rounded-bl-md'
+          }`}
+        >
+          <p className="text-sm">{msg.content}</p>
+          <div className={`text-xs mt-1 ${
+            isMyMessage ? 'text-blue-100' : 'text-secondary'
+          }`}>
+            {formatTime(msg.timestamp)}
+          </div>
         </div>
       </div>
-    </div>
-  )
+    )
+  }
 
   return (
     <div className="h-screen w-full bg-primary flex flex-col">
@@ -138,13 +182,15 @@ export default function ChatRoomPage() {
             {/* 상대방 아바타 */}
             <div className="w-10 h-10 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center">
               <span className="text-white font-medium text-sm">
-                {chatName.charAt(0)}
+                {roomInfo?.name.charAt(0) || '?'}
               </span>
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-primary">{chatName}</h1>
+              <h1 className="text-lg font-semibold text-primary">
+                {roomInfo?.name || '채팅방'}
+              </h1>
               <p className="text-xs text-secondary">
-                {isTyping ? t('chat.typing') : t('chat.online')}
+                {roomInfo?.participants.length || 0}명
               </p>
             </div>
           </div>
@@ -164,24 +210,22 @@ export default function ChatRoomPage() {
 
       {/* 메시지 목록 */}
       <div className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide">
-        <div className="space-y-2">
-          {messages.map(renderMessage)}
-          
-          {/* 타이핑 인디케이터 */}
-          {isTyping && (
-            <div className="flex justify-start mb-4">
-              <div className="bg-secondary text-primary rounded-2xl rounded-bl-md px-4 py-2">
-                <div className="flex space-x-1">
-                  <div className="w-2 h-2 bg-secondary rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                  <div className="w-2 h-2 bg-secondary rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <div ref={messagesEndRef} />
-        </div>
+        {isLoading ? (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-secondary">메시지 불러오는 중...</p>
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full">
+            <div className="text-6xl mb-4">💬</div>
+            <p className="text-primary font-medium mb-2">메시지가 없습니다</p>
+            <p className="text-secondary text-sm">첫 메시지를 보내보세요!</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {messages.map(renderMessage)}
+            <div ref={messagesEndRef} />
+          </div>
+        )}
       </div>
 
       {/* 메시지 입력 */}

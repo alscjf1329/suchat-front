@@ -28,6 +28,31 @@ const ko: TranslationKeys = {
     signUp: '회원가입'
   },
   
+  signup: {
+    title: 'SuChat',
+    subtitle: '새 계정을 만들어 대화를 시작하세요',
+    name: '이름',
+    email: '이메일',
+    password: '비밀번호',
+    confirmPassword: '비밀번호 확인',
+    phone: '전화번호',
+    birthday: '생년월일',
+    namePlaceholder: '이름을 입력하세요',
+    emailPlaceholder: '이메일을 입력하세요',
+    passwordPlaceholder: '비밀번호를 입력하세요',
+    confirmPasswordPlaceholder: '비밀번호를 다시 입력하세요',
+    phonePlaceholder: '전화번호를 입력하세요 (선택사항)',
+    signupButton: '회원가입',
+    signupLoading: '회원가입 중...',
+    haveAccount: '이미 계정이 있으신가요?',
+    loginLink: '로그인',
+    termsText: '회원가입 시',
+    termsLink: '서비스 약관',
+    and: '및',
+    privacyLink: '개인정보 처리방침',
+    agreeText: '에 동의하게 됩니다.'
+  },
+  
   chat: {
     title: 'SuChat',
     searchPlaceholder: '채팅방 검색',

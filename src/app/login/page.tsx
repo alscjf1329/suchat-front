@@ -2,28 +2,75 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { FormField, Button, LanguageSwitcher } from '@/components/ui'
+import { FormField, Button, LanguageSwitcher, Toast, ToastType } from '@/components/ui'
 import { useTranslation } from '@/contexts/I18nContext'
+import { apiClient, SignInData } from '@/lib/api'
+
+interface ToastState {
+  show: boolean
+  message: string
+  type: ToastType
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' })
   const router = useRouter()
   const { t } = useTranslation()
+
+  const showToast = (message: string, type: ToastType = 'info') => {
+    setToast({ show: true, message, type })
+  }
+
+  const hideToast = () => {
+    setToast({ show: false, message: '', type: 'info' })
+  }
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
     
-    setTimeout(() => {
+    try {
+      const signInData: SignInData = {
+        email,
+        password,
+      }
+
+      const response = await apiClient.signIn(signInData)
+      
+      if (response.success) {
+        // 로그인 성공 시 사용자 정보를 로컬 스토리지에 저장
+        localStorage.setItem('user', JSON.stringify(response.data))
+        showToast('로그인에 성공했습니다! 🎉', 'success')
+        
+        // 토스트를 보여준 후 페이지 이동
+        setTimeout(() => {
+          router.push('/chat')
+        }, 1500)
+      } else {
+        showToast('로그인에 실패했습니다: ' + response.message, 'error')
+      }
+    } catch (error) {
+      console.error('로그인 에러:', error)
+      showToast('로그인 중 오류가 발생했습니다.', 'error')
+    } finally {
       setIsLoading(false)
-      router.push('/chat')
-    }, 1000)
+    }
   }
 
   return (
     <div className="min-h-screen bg-primary flex items-center justify-center px-4">
+      {/* 토스트 알림 */}
+      {toast.show && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
+
       {/* 언어 전환 버튼 */}
       <div className="absolute top-4 right-4">
         <LanguageSwitcher />
@@ -88,7 +135,12 @@ export default function LoginPage() {
             <span className="text-sm text-secondary">
               {t('login.noAccount')}{' '}
             </span>
-            <Button variant="ghost" size="sm" className="text-sm font-medium px-2 py-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-sm font-medium px-2 py-1"
+              onClick={() => router.push('/signup')}
+            >
               {t('login.signUp')}
             </Button>
           </div>

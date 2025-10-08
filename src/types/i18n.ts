@@ -30,6 +30,32 @@ export interface TranslationKeys {
     signUp: string
   }
   
+  // 회원가입 페이지
+  signup: {
+    title: string
+    subtitle: string
+    name: string
+    email: string
+    password: string
+    confirmPassword: string
+    phone: string
+    birthday: string
+    namePlaceholder: string
+    emailPlaceholder: string
+    passwordPlaceholder: string
+    confirmPasswordPlaceholder: string
+    phonePlaceholder: string
+    signupButton: string
+    signupLoading: string
+    haveAccount: string
+    loginLink: string
+    termsText: string
+    termsLink: string
+    and: string
+    privacyLink: string
+    agreeText: string
+  }
+  
   // 채팅 페이지
   chat: {
     title: string
