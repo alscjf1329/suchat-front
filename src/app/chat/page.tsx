@@ -70,10 +70,18 @@ export default function ChatListPage() {
 
     try {
       setIsLoadingFriends(true)
-      const response = await apiClient.getAllUsers()
-      // 현재 사용자 제외
-      const filteredUsers = response.data?.filter(user => user.id !== currentUser.id) || []
-      setFriends(filteredUsers)
+      // 실제 친구 관계(accepted)만 조회
+      const response = await apiClient.getFriends()
+      // friends 테이블에서 가져온 데이터를 User 형식으로 변환
+      const friendsList = response.data?.map((friendship: any) => {
+        // 현재 사용자가 requester인 경우 addressee를, addressee인 경우 requester를 친구로 표시
+        const friend = friendship.requesterId === currentUser?.id 
+          ? friendship.addressee 
+          : friendship.requester
+        return friend
+      }).filter((friend: any) => friend) || []
+      
+      setFriends(friendsList)
     } catch (error) {
       console.error('친구 목록 로드 실패:', error)
       showToast('친구 목록을 불러오는데 실패했습니다.', 'error')

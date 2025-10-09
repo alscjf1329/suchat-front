@@ -184,6 +184,34 @@ class SocketClient {
     })
   }
 
+  // DM 조회 또는 생성
+  async getOrCreateDm(userId1: string, userId2: string, userName1: string, userName2: string): Promise<ChatRoom> {
+    await this.waitForConnection()
+    
+    console.log('📡 DM 조회/생성 요청:', { userId1, userId2 })
+    
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('DM 생성 시간 초과'))
+      }, 5000)
+
+      this.socket?.emit(
+        'get_or_create_dm', 
+        { userId1, userId2, userName1, userName2 }, 
+        (room: ChatRoom) => {
+          clearTimeout(timeout)
+          console.log('📥 DM 응답:', room)
+          
+          if (room) {
+            resolve(room)
+          } else {
+            reject(new Error('DM 생성 실패'))
+          }
+        }
+      )
+    })
+  }
+
   // 읽음 처리
   async markAsRead(roomId: string, userId: string, messageId: string): Promise<boolean> {
     return new Promise((resolve, reject) => {

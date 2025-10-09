@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { FormField, Button, LanguageSwitcher, Toast, ToastType } from '@/components/ui'
 import { useTranslation } from '@/contexts/I18nContext'
 import { apiClient, SignInData } from '@/lib/api'
+import { detectDeviceType } from '@/lib/device'
 
 interface ToastState {
   show: boolean
@@ -33,16 +34,27 @@ export default function LoginPage() {
     setIsLoading(true)
     
     try {
+      const deviceType = detectDeviceType()
+      console.log('📱 디바이스 타입:', deviceType, deviceType === 'mobile' ? '(24시간)' : '(2시간)')
+      
       const signInData: SignInData = {
         email,
         password,
+        deviceType,
       }
 
       const response = await apiClient.signIn(signInData)
       
-      if (response.success) {
-        // 로그인 성공 시 사용자 정보를 로컬 스토리지에 저장
-        localStorage.setItem('user', JSON.stringify(response.data))
+      if (response.success && response.data) {
+        // Access Token + Refresh Token + 사용자 정보 저장
+        const { accessToken, refreshToken, user } = response.data
+        
+        localStorage.setItem('accessToken', accessToken)
+        localStorage.setItem('refreshToken', refreshToken)
+        localStorage.setItem('user', JSON.stringify(user))
+        localStorage.setItem('deviceType', deviceType)
+        
+        console.log(`✅ 로그인 성공 (${deviceType}) - 토큰 저장 완료`)
         showToast('로그인에 성공했습니다! 🎉', 'success')
         
         // 토스트를 보여준 후 페이지 이동

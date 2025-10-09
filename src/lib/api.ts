@@ -13,6 +13,13 @@ export interface SignUpData {
 export interface SignInData {
   email: string;
   password: string;
+  deviceType?: 'mobile' | 'desktop';
+}
+
+export interface SignInResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
 }
 
 export interface User {
@@ -69,6 +76,24 @@ class ApiClient {
 
     try {
       const response = await fetch(url, { ...defaultOptions, ...options });
+      
+      // 401 Unauthorized - 토큰 만료
+      if (response.status === 401 && endpoint !== '/api/signin' && endpoint !== '/api/refresh') {
+        console.log('🔄 Access Token 만료 - Refresh 시도');
+        
+        const refreshed = await this.refreshAccessToken();
+        if (refreshed) {
+          // 토큰 갱신 성공 - 원래 요청 재시도
+          console.log('✅ Token 갱신 성공 - 요청 재시도');
+          return this.request(endpoint, options);
+        } else {
+          // 토큰 갱신 실패 - 로그인 페이지로
+          console.log('❌ Token 갱신 실패 - 로그인 페이지로 이동');
+          this.handleAuthError();
+          throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
+        }
+      }
+
       const data = await response.json();
 
       if (!response.ok) {
@@ -77,8 +102,56 @@ class ApiClient {
 
       return data;
     } catch (error) {
-      console.error('API 요청 에러:', error);
+      console.error('❌ API 요청 에러:', error);
       throw error;
+    }
+  }
+
+  // Access Token 갱신
+  private async refreshAccessToken(): Promise<boolean> {
+    try {
+      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+      const deviceType = typeof window !== 'undefined' ? localStorage.getItem('deviceType') : null;
+      
+      if (!refreshToken) {
+        return false;
+      }
+
+      const response = await fetch(`${this.baseURL}/api/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          refreshToken,
+          deviceType: deviceType || 'desktop' 
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        localStorage.setItem('accessToken', data.data.accessToken);
+        localStorage.setItem('refreshToken', data.data.refreshToken);
+        console.log(`✅ Token 갱신 완료 (${deviceType || 'desktop'})`);
+        return true;
+      }
+
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  // 인증 에러 처리
+  private handleAuthError(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('deviceType');
+      
+      // 현재 경로가 로그인 페이지가 아니면 리다이렉트
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
   }
 
@@ -91,8 +164,8 @@ class ApiClient {
   }
 
   // 로그인
-  async signIn(credentials: SignInData): Promise<ApiResponse<User>> {
-    return this.request<User>('/auth/signin', {
+  async signIn(credentials: SignInData): Promise<ApiResponse<SignInResponse>> {
+    return this.request<SignInResponse>('/api/signin', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -130,9 +203,119 @@ class ApiClient {
 
   // 모든 사용자 목록 조회 (친구 목록용)
   async getAllUsers(): Promise<ApiResponse<User[]>> {
-    return this.request<User[]>('/auth/users', {
+    return this.request<User[]>('/api/users', {
       method: 'GET',
     });
+  }
+
+  // 사용자 검색 (페이지네이션 지원)
+  async searchUsers(query: string, limit: number = 20, offset: number = 0): Promise<ApiResponse<{ users: User[]; total: number }>> {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    
+    console.log('🔑 검색 요청 토큰:', token ? '있음' : '없음');
+    console.log('🔍 검색 쿼리:', query);
+    
+    return this.request<{ users: User[]; total: number }>(
+      `/api/users/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,
+      {
+        method: 'GET',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      }
+    );
+  }
+
+  // 인증이 필요한 요청을 위한 헬퍼 메서드
+  private getAuthHeaders(): HeadersInit {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  }
+
+  // 친구 요청 보내기
+  async sendFriendRequest(addresseeId: string): Promise<ApiResponse<any>> {
+    const currentUser = getCurrentUser();
+    if (!currentUser) {
+      throw new Error('로그인이 필요합니다.');
+    }
+    
+    console.log('📤 친구 요청 전송:', { requesterId: currentUser.id, addresseeId });
+    
+    return this.request('/api/friends/request', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        requesterId: currentUser.id,
+        addresseeId: addresseeId 
+      }),
+    });
+  }
+
+  // 친구 요청 수락
+  async acceptFriendRequest(friendId: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/friends/${friendId}/accept`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // 친구 요청 거절
+  async rejectFriendRequest(friendId: string): Promise<ApiResponse<any>> {
+    return this.request(`/api/friends/${friendId}/reject`, {
+      method: 'PUT',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // 받은 친구 요청 목록
+  async getPendingRequests(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/friends/requests/received', {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // 보낸 친구 요청 목록
+  async getSentRequests(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/friends/requests/sent', {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // 친구 목록
+  async getFriends(): Promise<ApiResponse<any[]>> {
+    return this.request('/api/friends', {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // 친구 요청 삭제 (취소)
+  async deleteFriendRequest(friendId: string): Promise<ApiResponse<void>> {
+    return this.request(`/api/friends/${friendId}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // 로그아웃
+  async logout(): Promise<ApiResponse<void>> {
+    const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
+    
+    if (refreshToken) {
+      await this.request('/api/logout', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      });
+    }
+
+    // 로컬 스토리지 정리
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('refreshToken');
+      localStorage.removeItem('user');
+      localStorage.removeItem('deviceType');
+    }
+
+    return { success: true, message: 'Logged out' };
   }
 }
 

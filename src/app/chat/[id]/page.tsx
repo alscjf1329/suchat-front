@@ -84,12 +84,12 @@ export default function ChatRoomPage() {
     }
   }, [chatId])
 
-  // 명시적으로 채팅방 나가기 (추후 구현)
+  // 명시적으로 채팅방 나가기
   const handleLeaveRoom = async () => {
-    if (currentUser && chatId) {
-      await socketClient.leaveRoom(chatId, currentUser.id)
-      router.push('/chat')
-    }
+    if (!currentUser || !chatId) return
+    
+    await socketClient.leaveRoom(chatId, currentUser.id)
+    router.push('/chat')
   }
 
   const joinChatRoom = async () => {
@@ -112,12 +112,12 @@ export default function ChatRoomPage() {
         roomId: chatId,
         userId: currentUser.id,
         content: message.trim(),
-        type: 'text'
+        type: 'text',
       })
-      
+
       setMessage('')
     } catch (error) {
-      console.error('메시지 전송 실패:', error)
+      console.error('❌ 메시지 전송 실패:', error)
     }
   }
 
