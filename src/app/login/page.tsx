@@ -137,7 +137,12 @@ export default function LoginPage() {
 
           {/* 추가 옵션 */}
           <div className="mt-6 text-center">
-            <Button variant="ghost" size="sm" className="text-sm px-2 py-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-sm px-2 py-1"
+              onClick={() => router.push('/forgot-password')}
+            >
               {t('login.forgotPassword')}
             </Button>
           </div>

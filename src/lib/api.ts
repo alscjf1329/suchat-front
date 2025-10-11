@@ -317,6 +317,36 @@ class ApiClient {
 
     return { success: true, message: 'Logged out' };
   }
+
+  // 파일 업로드
+  async uploadFile(file: File, userId: string, roomId: string): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId);
+    formData.append('roomId', roomId);
+
+    const url = `${this.baseURL}/file/upload`;
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: this.getAuthHeaders(),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || '파일 업로드에 실패했습니다.');
+      }
+
+      const result = await response.json();
+      console.log('📦 백엔드 응답:', result);
+      return result;
+    } catch (error) {
+      console.error('❌ 파일 업로드 에러:', error);
+      throw error;
+    }
+  }
 }
 
 export const apiClient = new ApiClient();

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FormField, Button, LanguageSwitcher } from '@/components/ui'
+import Toast, { ToastType } from '@/components/ui/Toast'
 import { useTranslation } from '@/contexts/I18nContext'
 import { apiClient, SignUpData } from '@/lib/api'
 
@@ -19,8 +20,13 @@ export default function SignUpPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [isCheckingEmail, setIsCheckingEmail] = useState(false)
   const [errors, setErrors] = useState<{[key: string]: string}>({})
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
   const router = useRouter()
   const { t } = useTranslation()
+
+  const showToast = (message: string, type: ToastType = 'info') => {
+    setToast({ message, type })
+  }
 
   const handleInputChange = (field: string) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -241,18 +247,18 @@ export default function SignUpPage() {
             // 이메일 인증 안내 페이지로 이동
             router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&name=${encodeURIComponent(formData.name)}`)
           } else {
-            alert('회원가입은 완료되었지만 이메일 발송에 실패했습니다: ' + emailResult.message)
+            showToast('회원가입은 완료되었지만 이메일 발송에 실패했습니다: ' + emailResult.message, 'error')
           }
         } catch (emailError) {
           console.error('이메일 발송 에러:', emailError)
-          alert('회원가입은 완료되었지만 이메일 발송 중 오류가 발생했습니다.')
+          showToast('회원가입은 완료되었지만 이메일 발송 중 오류가 발생했습니다.', 'error')
         }
       } else {
-        alert('회원가입에 실패했습니다: ' + response.message)
+        showToast('회원가입에 실패했습니다: ' + response.message, 'error')
       }
     } catch (error) {
       console.error('회원가입 에러:', error)
-      alert('회원가입 중 오류가 발생했습니다.')
+      showToast('회원가입 중 오류가 발생했습니다.', 'error')
     } finally {
       setIsLoading(false)
     }
@@ -487,6 +493,15 @@ export default function SignUpPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast 알림 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, memo } from 'react'
 
 export type ToastType = 'success' | 'error' | 'info'
 
@@ -11,7 +11,7 @@ interface ToastProps {
   onClose: () => void
 }
 
-export default function Toast({ 
+function Toast({ 
   message, 
   type = 'info', 
   duration = 3000,
@@ -38,7 +38,13 @@ export default function Toast({
   }
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 animate-slide-down">
+    <div 
+      className="fixed top-4 left-1/2 z-50 pointer-events-none"
+      style={{ 
+        transform: 'translateX(-50%)',
+        willChange: 'transform'
+      }}
+    >
       <div 
         className={`
           ${typeStyles[type]}
@@ -47,7 +53,10 @@ export default function Toast({
           min-w-[300px] max-w-md
           backdrop-blur-sm
           border border-white/20
+          animate-slide-down
+          pointer-events-auto
         `}
+        style={{ willChange: 'opacity, transform' }}
         role="alert"
       >
         <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center font-bold">
@@ -65,4 +74,6 @@ export default function Toast({
     </div>
   )
 }
+
+export default memo(Toast)
 

@@ -93,22 +93,6 @@ header {
   display: none;
 }
 
-/* 토스트 애니메이션 */
-@keyframes slide-down {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -100%);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-
-.animate-slide-down {
-  animation: slide-down 0.3s ease-out;
-}
-
 /* 안읽음 뱃지 펄스 애니메이션 */
 @keyframes ping {
   75%, 100% {
@@ -119,5 +103,20 @@ header {
 
 .animate-ping {
   animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* 성능 최적화 - GPU 가속 */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 애니메이션/트랜지션 요소에 GPU 가속 적용 */
+.will-change-transform {
+  will-change: transform;
+}
+
+.will-change-opacity {
+  will-change: opacity;
 }
 

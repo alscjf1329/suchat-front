@@ -1,10 +1,19 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/contexts/I18nContext'
 import { useTheme } from '@/contexts/ThemeContext'
 import { Input, Button, BottomNavigation } from '@/components/ui'
+import Toast, { ToastType } from '@/components/ui/Toast'
+import { 
+  initializePushNotifications, 
+  registerServiceWorker, 
+  getPushSubscription,
+  unsubscribeFromPush,
+  removeSubscriptionFromServer,
+  sendTestPush
+} from '@/lib/push'
 
 interface SettingSection {
   id: string
@@ -27,6 +36,94 @@ export default function SettingsPage() {
   const { theme, setTheme, actualTheme } = useTheme()
   const router = useRouter()
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
+  const [pushEnabled, setPushEnabled] = useState(false)
+  const [isCheckingPush, setIsCheckingPush] = useState(true)
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
+
+  const showToast = (message: string, type: ToastType = 'info') => {
+    setToast({ message, type })
+  }
+
+  // 푸시 알림 상태 확인
+  useEffect(() => {
+    checkPushStatus()
+  }, [])
+
+  const checkPushStatus = async () => {
+    try {
+      const registration = await registerServiceWorker()
+      if (registration) {
+        const subscription = await getPushSubscription(registration)
+        setPushEnabled(!!subscription)
+      }
+    } catch (error) {
+      console.error('푸시 상태 확인 실패:', error)
+    } finally {
+      setIsCheckingPush(false)
+    }
+  }
+
+  const handlePushToggle = async (enabled: boolean) => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      showToast('로그인이 필요합니다', 'error')
+      return
+    }
+
+    try {
+      if (enabled) {
+        // 푸시 알림 활성화
+        const result = await initializePushNotifications(token)
+        
+        if (result.success) {
+          setPushEnabled(true)
+          showToast('푸시 알림이 활성화되었습니다', 'success')
+        } else {
+          if (result.reason === 'permission_denied') {
+            showToast('알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.', 'error')
+          } else {
+            const errorMsg = result.error?.message || '알 수 없는 오류'
+            showToast(`푸시 알림 활성화에 실패했습니다: ${errorMsg}`, 'error')
+          }
+        }
+      } else {
+        // 푸시 알림 비활성화
+        const registration = await registerServiceWorker()
+        if (registration) {
+          const subscription = await getPushSubscription(registration)
+          if (subscription) {
+            await removeSubscriptionFromServer(subscription, token)
+            await unsubscribeFromPush(registration)
+            setPushEnabled(false)
+            showToast('푸시 알림이 비활성화되었습니다', 'info')
+          }
+        }
+      }
+    } catch (error) {
+      console.error('푸시 토글 실패:', error)
+      showToast('오류가 발생했습니다', 'error')
+    }
+  }
+
+  const handleTestPush = async () => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      showToast('로그인이 필요합니다', 'error')
+      return
+    }
+
+    if (!pushEnabled) {
+      showToast('먼저 푸시 알림을 활성화해주세요', 'error')
+      return
+    }
+
+    const success = await sendTestPush(token)
+    if (success) {
+      showToast('테스트 알림을 전송했습니다. 잠시 후 알림을 확인하세요.', 'success')
+    } else {
+      showToast('테스트 알림 전송에 실패했습니다', 'error')
+    }
+  }
 
   const handleLogout = () => {
     router.push('/login')
@@ -101,7 +198,13 @@ export default function SettingsPage() {
           id: 'pushNotifications', 
           label: t('settings.pushNotifications'), 
           type: 'toggle', 
-          value: true 
+          value: pushEnabled 
+        },
+        { 
+          id: 'testPushNotification', 
+          label: '🧪 테스트 알림 보내기', 
+          type: 'button', 
+          action: handleTestPush 
         },
         { 
           id: 'messageNotifications', 
@@ -212,6 +315,11 @@ export default function SettingsPage() {
     // 테마 변경 처리
     if (itemId === 'theme') {
       setTheme(value)
+    }
+    
+    // 푸시 알림 토글 처리
+    if (itemId === 'pushNotifications') {
+      handlePushToggle(value)
     }
   }
 
@@ -325,6 +433,15 @@ export default function SettingsPage() {
 
       {/* 하단 네비게이션 바 */}
       <BottomNavigation />
+
+      {/* Toast 알림 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }

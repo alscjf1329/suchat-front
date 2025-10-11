@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button, LanguageSwitcher } from '@/components/ui'
+import Toast, { ToastType } from '@/components/ui/Toast'
 import { useTranslation } from '@/contexts/I18nContext'
 
 export default function EmailVerificationGuidePage() {
@@ -11,9 +12,14 @@ export default function EmailVerificationGuidePage() {
   const [isVerifying, setIsVerifying] = useState(false)
   const [verificationStatus, setVerificationStatus] = useState<'pending' | 'success' | 'error' | 'expired'>('pending')
   const [verificationMessage, setVerificationMessage] = useState('')
+  const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t } = useTranslation()
+
+  const showToast = (message: string, type: ToastType = 'info') => {
+    setToast({ message, type })
+  }
 
   const email = searchParams.get('email')
   const name = searchParams.get('name')
@@ -95,15 +101,15 @@ export default function EmailVerificationGuidePage() {
       const result = await response.json()
       
       if (result.success) {
-        alert('인증 이메일이 재발송되었습니다.')
+        showToast('인증 이메일이 재발송되었습니다.', 'success')
         setCountdown(60)
         setCanResend(false)
       } else {
-        alert('이메일 재발송에 실패했습니다: ' + result.message)
+        showToast('이메일 재발송에 실패했습니다: ' + result.message, 'error')
       }
     } catch (error) {
       console.error('재발송 에러:', error)
-      alert('이메일 재발송 중 오류가 발생했습니다.')
+      showToast('이메일 재발송 중 오류가 발생했습니다.', 'error')
     }
   }
 
@@ -266,6 +272,15 @@ export default function EmailVerificationGuidePage() {
           </div>
         </div>
       </div>
+
+      {/* Toast 알림 */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   )
 }
