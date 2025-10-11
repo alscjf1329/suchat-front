@@ -362,10 +362,10 @@ export default function ChatListPage() {
                     <p className="text-sm text-secondary flex-1 truncate">
                       {room.description || '메시지 없음'}
                     </p>
-                    {room.unreadCount > 0 && (
+                    {(room.unreadCount ?? 0) > 0 && (
                       <div className="relative ml-2 flex-shrink-0">
                         <div className="bg-gradient-to-br from-[#FF3B30] to-[#FF2D55] text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-2 flex items-center justify-center shadow-lg">
-                          {room.unreadCount > 99 ? '99+' : room.unreadCount}
+                          {(room.unreadCount ?? 0) > 99 ? '99+' : room.unreadCount}
                         </div>
                         <div className="absolute inset-0 bg-gradient-to-br from-[#FF3B30] to-[#FF2D55] rounded-full animate-ping opacity-75"></div>
                       </div>
