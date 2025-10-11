@@ -79,11 +79,13 @@ export default function SettingsPage() {
           setPushEnabled(true)
           showToast('푸시 알림이 활성화되었습니다', 'success')
         } else {
-          if (result.reason === 'permission_denied') {
+          if ('reason' in result && result.reason === 'permission_denied') {
             showToast('알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.', 'error')
-          } else {
-            const errorMsg = result.error?.message || '알 수 없는 오류'
+          } else if ('error' in result) {
+            const errorMsg = (result.error instanceof Error ? result.error.message : null) || '알 수 없는 오류'
             showToast(`푸시 알림 활성화에 실패했습니다: ${errorMsg}`, 'error')
+          } else {
+            showToast('푸시 알림 활성화에 실패했습니다', 'error')
           }
         }
       } else {

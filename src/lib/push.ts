@@ -5,6 +5,14 @@
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_KEY || '';
 
 /**
+ * 푸시 알림 초기화 결과 타입
+ */
+export type PushInitResult = 
+  | { success: true; subscription: PushSubscription }
+  | { success: false; reason: 'permission_denied' }
+  | { success: false; error: unknown };
+
+/**
  * Service Worker 등록
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
@@ -100,7 +108,7 @@ export async function subscribeToPush(
 
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey,
+      applicationServerKey: applicationServerKey as BufferSource,
     });
 
     console.log('✅ New push subscription created');
@@ -239,7 +247,7 @@ export async function removeSubscriptionFromServer(
 /**
  * 전체 푸시 알림 설정 초기화
  */
-export async function initializePushNotifications(token: string) {
+export async function initializePushNotifications(token: string): Promise<PushInitResult> {
   try {
     // 1. Service Worker 등록
     const registration = await registerServiceWorker();

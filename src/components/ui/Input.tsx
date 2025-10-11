@@ -12,6 +12,8 @@ interface InputProps {
   disabled?: boolean
   className?: string
   error?: string
+  minLength?: number
+  maxLength?: number
 }
 
 export default function Input({
@@ -25,7 +27,9 @@ export default function Input({
   required = false,
   disabled = false,
   className = '',
-  error
+  error,
+  minLength,
+  maxLength
 }: InputProps) {
   const baseClasses = `w-full ${icon ? 'pl-8' : 'pl-4'} pr-4 py-3 bg-primary border border-divider rounded-xl focus:ring-2 focus:ring-[#0064FF] focus:border-[#0064FF] outline-none transition-all duration-200 shadow-sm text-primary`
   const errorClasses = error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : ""
@@ -53,6 +57,8 @@ export default function Input({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
+          minLength={minLength}
+          maxLength={maxLength}
           className={`${baseClasses} ${errorClasses} ${disabledClasses} ${className}`}
         />
       </div>
