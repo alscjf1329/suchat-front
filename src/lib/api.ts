@@ -78,7 +78,7 @@ class ApiClient {
       const response = await fetch(url, { ...defaultOptions, ...options });
       
       // 401 Unauthorized - 토큰 만료
-      if (response.status === 401 && endpoint !== '/api/signin' && endpoint !== '/api/refresh') {
+      if (response.status === 401 && endpoint !== '/auth/signin' && endpoint !== '/auth/refresh') {
         console.log('🔄 Access Token 만료 - Refresh 시도');
         
         const refreshed = await this.refreshAccessToken();
@@ -117,7 +117,7 @@ class ApiClient {
         return false;
       }
 
-      const response = await fetch(`${this.baseURL}/api/refresh`, {
+      const response = await fetch(`${this.baseURL}/auth/refresh`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -165,7 +165,7 @@ class ApiClient {
 
   // 로그인
   async signIn(credentials: SignInData): Promise<ApiResponse<SignInResponse>> {
-    return this.request<SignInResponse>('/api/signin', {
+    return this.request<SignInResponse>('/auth/signin', {
       method: 'POST',
       body: JSON.stringify(credentials),
     });
@@ -203,7 +203,7 @@ class ApiClient {
 
   // 모든 사용자 목록 조회 (친구 목록용)
   async getAllUsers(): Promise<ApiResponse<User[]>> {
-    return this.request<User[]>('/api/users', {
+    return this.request<User[]>('/users', {
       method: 'GET',
     });
   }
@@ -216,7 +216,7 @@ class ApiClient {
     console.log('🔍 검색 쿼리:', query);
     
     return this.request<{ users: User[]; total: number }>(
-      `/api/users/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,
+      `/users/search?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`,
       {
         method: 'GET',
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
@@ -239,7 +239,7 @@ class ApiClient {
     
     console.log('📤 친구 요청 전송:', { requesterId: currentUser.id, addresseeId });
     
-    return this.request('/api/friends/request', {
+    return this.request('/friends/request', {
       method: 'POST',
       body: JSON.stringify({ 
         requesterId: currentUser.id,
@@ -250,7 +250,7 @@ class ApiClient {
 
   // 친구 요청 수락
   async acceptFriendRequest(friendId: string): Promise<ApiResponse<any>> {
-    return this.request(`/api/friends/${friendId}/accept`, {
+    return this.request(`/friends/${friendId}/accept`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
     });
@@ -258,7 +258,7 @@ class ApiClient {
 
   // 친구 요청 거절
   async rejectFriendRequest(friendId: string): Promise<ApiResponse<any>> {
-    return this.request(`/api/friends/${friendId}/reject`, {
+    return this.request(`/friends/${friendId}/reject`, {
       method: 'PUT',
       headers: this.getAuthHeaders(),
     });
@@ -266,7 +266,7 @@ class ApiClient {
 
   // 받은 친구 요청 목록
   async getPendingRequests(): Promise<ApiResponse<any[]>> {
-    return this.request('/api/friends/requests/received', {
+    return this.request('/friends/requests/received', {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -274,7 +274,7 @@ class ApiClient {
 
   // 보낸 친구 요청 목록
   async getSentRequests(): Promise<ApiResponse<any[]>> {
-    return this.request('/api/friends/requests/sent', {
+    return this.request('/friends/requests/sent', {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -282,7 +282,7 @@ class ApiClient {
 
   // 친구 목록
   async getFriends(): Promise<ApiResponse<any[]>> {
-    return this.request('/api/friends', {
+    return this.request('/friends', {
       method: 'GET',
       headers: this.getAuthHeaders(),
     });
@@ -290,7 +290,7 @@ class ApiClient {
 
   // 친구 요청 삭제 (취소)
   async deleteFriendRequest(friendId: string): Promise<ApiResponse<void>> {
-    return this.request(`/api/friends/${friendId}`, {
+    return this.request(`/friends/${friendId}`, {
       method: 'DELETE',
       headers: this.getAuthHeaders(),
     });
@@ -301,7 +301,7 @@ class ApiClient {
     const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
     
     if (refreshToken) {
-      await this.request('/api/logout', {
+      await this.request('/auth/logout', {
         method: 'POST',
         body: JSON.stringify({ refreshToken }),
       });

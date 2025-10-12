@@ -120,3 +120,44 @@ header {
   will-change: opacity;
 }
 
+/* iOS Date Input 스타일 통일 */
+input[type="date"] {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  min-height: 48px;
+  height: 48px;
+  line-height: 1.2;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+/* 네이티브 캘린더 아이콘 제거하고 커스텀 아이콘 사용 */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  position: absolute;
+  right: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* date input의 텍스트 영역 */
+input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  min-height: 1.2em;
+}
+
+/* iOS에서 date input과 다른 input의 패딩을 동일하게 */
+@supports (-webkit-touch-callout: none) {
+  /* iOS only */
+  input[type="date"] {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    vertical-align: middle;
+  }
+}
+
