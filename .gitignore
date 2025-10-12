@@ -127,7 +127,7 @@ temp/
 *.sw?
 
 # PWA files
-**/public/sw.js
+# **/public/sw.js
 **/public/workbox-*.js
 **/public/worker-*.js
 **/public/sw.js.map
