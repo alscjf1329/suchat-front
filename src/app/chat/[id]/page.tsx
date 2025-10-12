@@ -419,7 +419,7 @@ export default function ChatRoomPage() {
       </div>
 
       {/* 메시지 입력 */}
-      <div className="bg-primary border-t border-divider px-4 py-3 shrink-0 safe-bottom">
+      <div className="bg-primary border-t border-divider px-4 py-3 shrink-0 safe-bottom-chat">
         {uploadingFile && (
           <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center space-x-2">
             <span className="text-lg animate-spin">⏳</span>

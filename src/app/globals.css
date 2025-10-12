@@ -162,8 +162,14 @@ input[type="date"]::-webkit-date-and-time-value {
 }
 
 /* 모바일 키보드 대응 - Safe Area 처리 */
-.safe-bottom {
+/* 채팅 입력란 전용 (키보드가 올라올 때) */
+.safe-bottom-chat {
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+}
+
+/* 하단 네비게이션 바 전용 (고정 영역) */
+.safe-bottom-nav {
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* 오버스크롤 방지 (iOS 바운스 효과 제거) */
