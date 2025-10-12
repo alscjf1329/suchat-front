@@ -72,10 +72,49 @@ export default function SettingsPage() {
       return
     }
 
+    // iOS 환경 체크
+    const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent)
+    const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|chromium|crios|fxios|edgios/i.test(navigator.userAgent)
+    const isStandalone = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches
+
+    console.log('📱 Device Info:', {
+      isIOS,
+      isSafari,
+      isStandalone,
+      userAgent: navigator.userAgent,
+    })
+
+    if (isIOS) {
+      // iOS 버전 체크
+      const match = navigator.userAgent.match(/OS (\d+)_(\d+)/)
+      const iosVersion = match ? parseFloat(`${match[1]}.${match[2]}`) : 0
+      
+      console.log('🍎 iOS Version:', iosVersion)
+
+      if (iosVersion < 16.4) {
+        showToast(`iOS 16.4 이상이 필요합니다 (현재: iOS ${iosVersion})`, 'error')
+        return
+      }
+
+      if (!isSafari) {
+        showToast('iOS에서는 Safari 브라우저만 푸시 알림을 지원합니다', 'error')
+        return
+      }
+
+      if (!isStandalone) {
+        showToast('홈 화면에 앱을 추가한 후 실행해주세요\n\nSafari 공유 버튼(⬆️) → "홈 화면에 추가"', 'error')
+        return
+      }
+    }
+
     try {
       if (enabled) {
+        console.log('🔔 Enabling push notifications...')
+        
         // 푸시 알림 활성화
         const result = await initializePushNotifications(token)
+        
+        console.log('📬 Push init result:', result)
         
         if (result.success) {
           setPushEnabled(true)
@@ -85,7 +124,8 @@ export default function SettingsPage() {
             showToast('알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.', 'error')
           } else if ('error' in result) {
             const errorMsg = (result.error instanceof Error ? result.error.message : null) || '알 수 없는 오류'
-            showToast(`푸시 알림 활성화에 실패했습니다: ${errorMsg}`, 'error')
+            console.error('❌ Push error:', result.error)
+            showToast(`푸시 알림 활성화 실패: ${errorMsg}`, 'error')
           } else {
             showToast('푸시 알림 활성화에 실패했습니다', 'error')
           }
@@ -104,29 +144,14 @@ export default function SettingsPage() {
         }
       }
     } catch (error) {
-      console.error('푸시 토글 실패:', error)
-      showToast('오류가 발생했습니다', 'error')
+      console.error('❌ 푸시 토글 실패:', error)
+      showToast(`오류가 발생했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     }
   }
 
-  const handleTestPush = async () => {
-    const token = localStorage.getItem('accessToken')
-    if (!token) {
-      showToast('로그인이 필요합니다', 'error')
-      return
-    }
-
-    if (!pushEnabled) {
-      showToast('먼저 푸시 알림을 활성화해주세요', 'error')
-      return
-    }
-
-    const success = await sendTestPush(token)
-    if (success) {
-      showToast('테스트 알림을 전송했습니다. 잠시 후 알림을 확인하세요.', 'success')
-    } else {
-      showToast('테스트 알림 전송에 실패했습니다', 'error')
-    }
+  const handleTestPush = () => {
+    // 디버그 페이지로 리다이렉트
+    window.location.href = '/test-push.html'
   }
 
   const handleLogout = async () => {

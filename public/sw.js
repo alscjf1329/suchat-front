@@ -94,7 +94,9 @@ self.addEventListener('fetch', (event) => {
 
 // 푸시 알림 수신 처리
 self.addEventListener('push', (event) => {
+  console.log('[SW] ========== Push Event Start ==========');
   console.log('[SW] Push notification received');
+  console.log('[SW] Event data exists:', !!event.data);
   
   let notificationData = {
     title: '새 메시지',
@@ -107,7 +109,12 @@ self.addEventListener('push', (event) => {
 
   try {
     if (event.data) {
-      const payload = event.data.json();
+      const rawData = event.data.text();
+      console.log('[SW] Raw push data:', rawData);
+      
+      const payload = JSON.parse(rawData);
+      console.log('[SW] Parsed payload:', payload);
+      
       notificationData = {
         title: payload.title || notificationData.title,
         body: payload.body || notificationData.body,
@@ -116,9 +123,12 @@ self.addEventListener('push', (event) => {
         data: payload.data || notificationData.data,
         tag: payload.tag || notificationData.tag,
       };
+      
+      console.log('[SW] Final notification data:', notificationData);
     }
   } catch (error) {
     console.error('[SW] Failed to parse push data:', error);
+    console.error('[SW] Error stack:', error.stack);
   }
 
   const options = {
@@ -131,13 +141,21 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200],
   };
 
+  console.log('[SW] Notification options:', options);
+  console.log('[SW] Calling showNotification...');
+
   event.waitUntil(
     self.registration.showNotification(notificationData.title, options)
       .then(() => {
-        console.log('[SW] Notification displayed');
+        console.log('[SW] ✅ Notification displayed successfully');
+        console.log('[SW] ========== Push Event End ==========');
       })
       .catch((error) => {
-        console.error('[SW] Failed to show notification:', error);
+        console.error('[SW] ❌ Failed to show notification:', error);
+        console.error('[SW] Error name:', error.name);
+        console.error('[SW] Error message:', error.message);
+        console.error('[SW] Error stack:', error.stack);
+        console.log('[SW] ========== Push Event End (ERROR) ==========');
       })
   );
 });

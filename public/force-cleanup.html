@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SuChat - 강제 Service Worker 정리</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 16px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #dc2626;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #64748b;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            background: #f1f5f9;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 20px;
+            font-size: 14px;
+            line-height: 1.6;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        .log-entry {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .log-entry.success {
+            color: #059669;
+        }
+        
+        .log-entry.info {
+            color: #0284c7;
+        }
+        
+        .log-entry.warning {
+            color: #d97706;
+        }
+        
+        .log-entry.error {
+            color: #dc2626;
+        }
+        
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-bottom: 12px;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(220, 38, 38, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        
+        .button-secondary {
+            background: #e2e8f0;
+            color: #475569;
+        }
+        
+        .info-box {
+            background: #fee2e2;
+            border-left: 4px solid #dc2626;
+            padding: 12px 16px;
+            margin-top: 20px;
+            border-radius: 4px;
+            font-size: 13px;
+            line-height: 1.6;
+            color: #991b1b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 강제 정리 & 재등록</h1>
+        <p class="subtitle">모든 Service Worker를 제거하고 새로 등록합니다</p>
+        
+        <div class="status" id="status">
+            <div class="log-entry info">
+                <span>ℹ️</span>
+                <span>현재 상태를 확인합니다...</span>
+            </div>
+        </div>
+        
+        <button id="cleanupBtn" onclick="forceCleanupAndReload()">
+            🔥 강제 정리 및 새로고침
+        </button>
+        
+        <button class="button-secondary" onclick="window.location.href='/'">
+            🏠 홈으로 돌아가기
+        </button>
+        
+        <div class="info-box">
+            <strong>⚠️ 주의:</strong><br>
+            이 작업은 다음을 수행합니다:<br>
+            • 모든 Service Worker 강제 등록 해제<br>
+            • 모든 캐시 삭제<br>
+            • localStorage 정리<br>
+            • 자동으로 페이지 새로고침
+        </div>
+    </div>
+
+    <script>
+        const statusEl = document.getElementById('status');
+        const cleanupBtn = document.getElementById('cleanupBtn');
+        
+        function addLog(type, icon, message) {
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `<span>${icon}</span><span>${message}</span>`;
+            statusEl.appendChild(logEntry);
+            statusEl.scrollTop = statusEl.scrollHeight;
+        }
+        
+        // 페이지 로드 시 현재 상태 확인
+        window.addEventListener('load', async () => {
+            statusEl.innerHTML = '';
+            addLog('info', '🔍', '현재 상태를 확인합니다...');
+            
+            if (!('serviceWorker' in navigator)) {
+                addLog('warning', '⚠️', 'Service Worker를 지원하지 않는 브라우저입니다.');
+                return;
+            }
+            
+            // Service Worker 확인
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            
+            if (registrations.length === 0) {
+                addLog('success', '✅', 'Service Worker가 등록되어 있지 않습니다.');
+            } else {
+                addLog('warning', '⚠️', `${registrations.length}개의 Service Worker가 발견되었습니다:`);
+                
+                registrations.forEach((reg, index) => {
+                    const scriptURL = reg.active?.scriptURL || reg.waiting?.scriptURL || reg.installing?.scriptURL || 'Unknown';
+                    const state = reg.active?.state || reg.waiting?.state || reg.installing?.state || 'Unknown';
+                    
+                    addLog('warning', '📝', `[${index + 1}] ${scriptURL} (${state})`);
+                    
+                    // Workbox 감지
+                    if (scriptURL.includes('workbox')) {
+                        addLog('error', '❌', '   → Workbox가 감지되었습니다! 정리가 필요합니다.');
+                    }
+                });
+            }
+            
+            // 캐시 확인
+            if ('caches' in window) {
+                const cacheNames = await caches.keys();
+                
+                if (cacheNames.length === 0) {
+                    addLog('success', '✅', '캐시가 없습니다.');
+                } else {
+                    addLog('info', '🗂️', `${cacheNames.length}개의 캐시가 발견되었습니다.`);
+                    
+                    const workboxCaches = cacheNames.filter(name => 
+                        name.includes('workbox') || name.includes('precache')
+                    );
+                    
+                    if (workboxCaches.length > 0) {
+                        addLog('error', '❌', `${workboxCaches.length}개의 Workbox 캐시가 발견되었습니다!`);
+                        workboxCaches.forEach(name => {
+                            addLog('warning', '   •', name);
+                        });
+                    }
+                }
+            }
+            
+            addLog('info', '💡', '위 버튼을 클릭하여 정리를 시작하세요.');
+        });
+        
+        async function forceCleanupAndReload() {
+            try {
+                cleanupBtn.disabled = true;
+                statusEl.innerHTML = '';
+                
+                addLog('info', '🚀', '강제 정리를 시작합니다...');
+                
+                if (!('serviceWorker' in navigator)) {
+                    addLog('error', '❌', 'Service Worker를 지원하지 않는 브라우저입니다.');
+                    return;
+                }
+                
+                // 1. 모든 Service Worker 등록 해제
+                addLog('info', '📝', 'Service Worker 등록 해제 중...');
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                
+                for (const registration of registrations) {
+                    const scriptURL = registration.active?.scriptURL || 'Unknown';
+                    await registration.unregister();
+                    addLog('success', '✅', `등록 해제: ${scriptURL}`);
+                }
+                
+                // 2. 모든 캐시 삭제
+                if ('caches' in window) {
+                    addLog('info', '🗂️', '캐시 삭제 중...');
+                    const cacheNames = await caches.keys();
+                    
+                    for (const cacheName of cacheNames) {
+                        await caches.delete(cacheName);
+                        addLog('success', '✅', `캐시 삭제: ${cacheName}`);
+                    }
+                }
+                
+                // 3. localStorage 정리
+                addLog('info', '📦', 'localStorage 정리 중...');
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('workbox') || key.includes('sw-'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                keysToRemove.forEach(key => {
+                    localStorage.removeItem(key);
+                    addLog('success', '✅', `localStorage 삭제: ${key}`);
+                });
+                
+                // 4. 완료
+                addLog('success', '🎉', '모든 정리가 완료되었습니다!');
+                addLog('info', '🔄', '3초 후 홈 페이지로 이동하고 새로고침됩니다...');
+                
+                setTimeout(() => {
+                    window.location.href = '/?t=' + Date.now(); // 캐시 무시
+                }, 3000);
+                
+            } catch (error) {
+                addLog('error', '❌', `오류 발생: ${error.message}`);
+                cleanupBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
+

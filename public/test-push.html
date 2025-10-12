@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>SuChat 푸시 알림 디버그</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: system-ui;
+      padding: 20px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+    button {
+      padding: 15px 25px;
+      font-size: 16px;
+      margin: 10px 0;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      background: #0064FF;
+      color: white;
+      cursor: pointer;
+    }
+    .log {
+      background: #f5f5f5;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 12px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .success { color: green; }
+    .error { color: red; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>🔔 푸시 알림 디버그</h1>
+  
+  <button onclick="checkEnvironment()">1️⃣ 환경 확인</button>
+  <button onclick="checkPermission()">2️⃣ 알림 권한 확인</button>
+  <button onclick="testDirectNotification()">3️⃣ 직접 알림 테스트</button>
+  <button onclick="checkServiceWorker()">4️⃣ Service Worker 확인</button>
+  <button onclick="checkPushSubscription()">5️⃣ 푸시 구독 확인</button>
+  <button onclick="testServiceWorkerNotification()">6️⃣ SW 알림 테스트</button>
+  <button onclick="sendRealPushTest()" style="background: #ff6b6b;">🚀 실제 푸시 알림 전송</button>
+  <button onclick="clearLogs()">🗑️ 로그 지우기</button>
+  <button onclick="goBack()" style="background: #6c757d;">← 설정으로 돌아가기</button>
+
+  <div class="log" id="log"></div>
+
+  <script>
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      const className = type;
+      logDiv.innerHTML += `<div class="${className}">[${time}] ${message}</div>`;
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function clearLogs() {
+      document.getElementById('log').innerHTML = '';
+      log('로그 초기화됨', 'info');
+    }
+
+    // 1. 환경 확인
+    function checkEnvironment() {
+      log('=== 환경 확인 ===', 'info');
+      
+      const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+      const isSafari = /safari/i.test(navigator.userAgent) && !/chrome|chromium|crios|fxios|edgios/.test(navigator.userAgent);
+      const isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+      
+      log(`iOS: ${isIOS}`, isIOS ? 'info' : 'success');
+      log(`Safari: ${isSafari}`, 'info');
+      log(`Standalone (홈 화면 앱): ${isStandalone}`, isStandalone ? 'success' : 'error');
+      log(`User Agent: ${navigator.userAgent}`, 'info');
+      
+      if (isIOS && !isStandalone) {
+        log('⚠️ iOS에서는 홈 화면에 추가 후 실행해야 합니다!', 'error');
+      }
+      
+      if (isIOS) {
+        const match = navigator.userAgent.match(/OS (\d+)_(\d+)_?(\d+)?/);
+        if (match) {
+          const version = `${match[1]}.${match[2]}`;
+          log(`iOS 버전: ${version}`, parseFloat(version) >= 16.4 ? 'success' : 'error');
+          if (parseFloat(version) < 16.4) {
+            log('⚠️ iOS 16.4 이상이 필요합니다!', 'error');
+          }
+        }
+      }
+    }
+
+    // 2. 알림 권한 확인
+    async function checkPermission() {
+      log('=== 알림 권한 확인 ===', 'info');
+      
+      if (!('Notification' in window)) {
+        log('❌ 이 브라우저는 알림을 지원하지 않습니다', 'error');
+        return;
+      }
+      
+      log(`현재 권한: ${Notification.permission}`, 
+        Notification.permission === 'granted' ? 'success' : 'error');
+      
+      if (Notification.permission !== 'granted') {
+        log('권한 요청 중...', 'info');
+        const permission = await Notification.requestPermission();
+        log(`권한 결과: ${permission}`, permission === 'granted' ? 'success' : 'error');
+      }
+    }
+
+    // 3. 직접 알림 테스트
+    function testDirectNotification() {
+      log('=== 직접 알림 테스트 ===', 'info');
+      
+      if (Notification.permission !== 'granted') {
+        log('❌ 알림 권한이 없습니다. 먼저 권한을 허용하세요', 'error');
+        return;
+      }
+      
+      try {
+        const notification = new Notification('테스트 알림', {
+          body: '이 알림이 보이면 시스템 알림은 정상입니다 ✅',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-192x192.png',
+          tag: 'test-direct'
+        });
+        
+        log('✅ 직접 알림 전송 성공! 알림이 보이는지 확인하세요', 'success');
+        
+        notification.onclick = () => {
+          log('알림 클릭됨!', 'success');
+          notification.close();
+        };
+      } catch (error) {
+        log(`❌ 직접 알림 실패: ${error.message}`, 'error');
+      }
+    }
+
+    // 4. Service Worker 확인
+    async function checkServiceWorker() {
+      log('=== Service Worker 확인 ===', 'info');
+      
+      if (!('serviceWorker' in navigator)) {
+        log('❌ Service Worker 미지원', 'error');
+        return;
+      }
+      
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        
+        if (!registration) {
+          log('❌ Service Worker가 등록되지 않았습니다', 'error');
+          log('등록 시도 중...', 'info');
+          
+          const newReg = await navigator.serviceWorker.register('/sw.js');
+          log('✅ Service Worker 등록 완료', 'success');
+          log(`Scope: ${newReg.scope}`, 'info');
+          return;
+        }
+        
+        log('✅ Service Worker 등록됨', 'success');
+        log(`Scope: ${registration.scope}`, 'info');
+        log(`상태: ${registration.active?.state || '없음'}`, 
+          registration.active?.state === 'activated' ? 'success' : 'error');
+        
+        // Service Worker 메시지 리스너
+        navigator.serviceWorker.addEventListener('message', (event) => {
+          log(`SW 메시지: ${JSON.stringify(event.data)}`, 'info');
+        });
+        
+      } catch (error) {
+        log(`❌ Service Worker 확인 실패: ${error.message}`, 'error');
+      }
+    }
+
+    // 5. 푸시 구독 확인
+    async function checkPushSubscription() {
+      log('=== 푸시 구독 확인 ===', 'info');
+      
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        
+        if (!registration) {
+          log('❌ Service Worker가 없습니다', 'error');
+          return;
+        }
+        
+        const subscription = await registration.pushManager.getSubscription();
+        
+        if (!subscription) {
+          log('❌ 푸시 구독이 없습니다', 'error');
+          log('설정 페이지에서 푸시 알림을 활성화하세요', 'info');
+          return;
+        }
+        
+        log('✅ 푸시 구독 있음', 'success');
+        log(`Endpoint: ${subscription.endpoint.substring(0, 50)}...`, 'info');
+        
+        const json = subscription.toJSON();
+        log(`Keys 있음: ${!!json.keys}`, json.keys ? 'success' : 'error');
+        
+      } catch (error) {
+        log(`❌ 푸시 구독 확인 실패: ${error.message}`, 'error');
+      }
+    }
+
+    // 6. Service Worker 알림 테스트
+    async function testServiceWorkerNotification() {
+      log('=== Service Worker 알림 테스트 ===', 'info');
+      
+      try {
+        const registration = await navigator.serviceWorker.getRegistration();
+        
+        if (!registration) {
+          log('❌ Service Worker가 없습니다', 'error');
+          return;
+        }
+        
+        if (!registration.active) {
+          log('❌ Service Worker가 활성화되지 않았습니다', 'error');
+          return;
+        }
+        
+        // Service Worker를 통한 알림 표시
+        await registration.showNotification('SW 테스트 알림', {
+          body: 'Service Worker를 통한 알림입니다 ✅',
+          icon: '/icons/icon-192x192.png',
+          badge: '/icons/icon-192x192.png',
+          tag: 'test-sw',
+          data: { test: true },
+          requireInteraction: false
+        });
+        
+        log('✅ Service Worker 알림 전송 성공! 알림이 보이는지 확인하세요', 'success');
+        
+      } catch (error) {
+        log(`❌ Service Worker 알림 실패: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+
+    // 실제 백엔드로 푸시 전송
+    async function sendRealPushTest() {
+      log('=== 실제 푸시 알림 전송 ===', 'info');
+      
+      const token = localStorage.getItem('accessToken');
+      
+      if (!token) {
+        log('❌ 로그인이 필요합니다', 'error');
+        log('설정 페이지로 돌아가서 로그인하세요', 'info');
+        return;
+      }
+      
+      try {
+        log('백엔드 API 호출 중...', 'info');
+        
+        // API URL 가져오기 (환경에 따라 자동 감지)
+        const apiUrl = localStorage.getItem('apiUrl') || 
+                       (window.location.hostname === 'localhost' ? 'http://localhost:8000' : window.location.origin);
+        
+        log(`API URL: ${apiUrl}`, 'info');
+        
+        const response = await fetch(`${apiUrl}/push/test`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        log('✅ 백엔드 푸시 전송 성공!', 'success');
+        log(`Job ID: ${result.jobId}`, 'success');
+        log('🔍 이제 Service Worker 콘솔을 확인하세요!', 'info');
+        log('Mac이면: Safari 개발 → iPhone → SuChat', 'info');
+        log('또는 10초 후 알림이 표시되는지 확인하세요', 'info');
+        
+      } catch (error) {
+        log(`❌ 푸시 전송 실패: ${error.message}`, 'error');
+        console.error(error);
+      }
+    }
+    
+    // 설정으로 돌아가기
+    function goBack() {
+      window.location.href = '/settings';
+    }
+
+    // 초기 로드 시 자동 환경 확인
+    window.addEventListener('load', () => {
+      log('=== SuChat 푸시 알림 디버그 시작 ===', 'info');
+      checkEnvironment();
+    });
+  </script>
+</body>
+</html>
+
