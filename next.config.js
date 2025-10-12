@@ -1,8 +1,7 @@
+// next-pwa 완전 비활성화 - 커스텀 Service Worker 사용
 const withPWA = require('next-pwa')({
   dest: 'public',
-  register: true,
-  skipWaiting: true,
-  disable: process.env.NODE_ENV === 'development',
+  disable: true, // next-pwa 비활성화하고 커스텀 sw.js 사용
 })
 
 /** @type {import('next').NextConfig} */
@@ -23,6 +22,34 @@ const nextConfig = {
     removeConsole: process.env.NODE_ENV === 'production' ? {
       exclude: ['error', 'warn'],
     } : false,
+  },
+  
+  // PWA 헤더 설정
+  async headers() {
+    return [
+      {
+        source: '/sw.js',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=0, must-revalidate',
+          },
+          {
+            key: 'Service-Worker-Allowed',
+            value: '/',
+          },
+        ],
+      },
+      {
+        source: '/manifest.json',
+        headers: [
+          {
+            key: 'Content-Type',
+            value: 'application/manifest+json',
+          },
+        ],
+      },
+    ]
   },
 }
 
