@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button, LanguageSwitcher } from '@/components/ui'
 import Toast, { ToastType } from '@/components/ui/Toast'
 import { useTranslation } from '@/contexts/I18nContext'
+import { apiClient } from '@/lib/api'
 
 function EmailVerificationContent() {
   const [countdown, setCountdown] = useState(60)
@@ -57,17 +58,9 @@ function EmailVerificationContent() {
     setVerificationStatus('pending')
 
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/verify-email`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token: verificationToken }),
-      })
+      const response = await apiClient.verifyEmail(verificationToken)
 
-      const result = await response.json()
-
-      if (result.success) {
+      if (response.success) {
         setVerificationStatus('success')
         setVerificationMessage('이메일 인증이 완료되었습니다!')
         
@@ -77,12 +70,12 @@ function EmailVerificationContent() {
         }, 3000)
       } else {
         setVerificationStatus('error')
-        setVerificationMessage(result.message || '이메일 인증에 실패했습니다.')
+        setVerificationMessage(response.message || '이메일 인증에 실패했습니다.')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('이메일 인증 에러:', error)
       setVerificationStatus('error')
-      setVerificationMessage('이메일 인증 중 오류가 발생했습니다.')
+      setVerificationMessage(error.message || '이메일 인증 중 오류가 발생했습니다.')
     } finally {
       setIsVerifying(false)
     }
@@ -90,26 +83,18 @@ function EmailVerificationContent() {
 
   const handleResendEmail = async () => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/resend-verification`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email }),
-      })
-
-      const result = await response.json()
+      const response = await apiClient.resendVerificationEmail(email!)
       
-      if (result.success) {
+      if (response.success) {
         showToast('인증 이메일이 재발송되었습니다.', 'success')
         setCountdown(60)
         setCanResend(false)
       } else {
-        showToast('이메일 재발송에 실패했습니다: ' + result.message, 'error')
+        showToast('이메일 재발송에 실패했습니다: ' + response.message, 'error')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('재발송 에러:', error)
-      showToast('이메일 재발송 중 오류가 발생했습니다.', 'error')
+      showToast(error.message || '이메일 재발송 중 오류가 발생했습니다.', 'error')
     }
   }
 

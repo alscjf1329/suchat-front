@@ -225,40 +225,18 @@ export default function SignUpPage() {
         birthday: formData.birthday || undefined,
       }
 
+      // 회원가입 요청 (email_verifications에 저장 + 이메일 발송)
       const response = await apiClient.signUp(signUpData)
       
       if (response.success) {
-        // 이메일 발송 요청
-        try {
-          const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/auth/send-verification-email`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              email: formData.email,
-              name: formData.name,
-            }),
-          })
-
-          const emailResult = await emailResponse.json()
-          
-          if (emailResult.success) {
-            // 이메일 인증 안내 페이지로 이동
-            router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&name=${encodeURIComponent(formData.name)}`)
-          } else {
-            showToast('회원가입은 완료되었지만 이메일 발송에 실패했습니다: ' + emailResult.message, 'error')
-          }
-        } catch (emailError) {
-          console.error('이메일 발송 에러:', emailError)
-          showToast('회원가입은 완료되었지만 이메일 발송 중 오류가 발생했습니다.', 'error')
-        }
+        // 이메일 인증 안내 페이지로 이동
+        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&name=${encodeURIComponent(formData.name)}`)
       } else {
-        showToast('회원가입에 실패했습니다: ' + response.message, 'error')
+        showToast(response.message || '회원가입 요청에 실패했습니다.', 'error')
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('회원가입 에러:', error)
-      showToast('회원가입 중 오류가 발생했습니다.', 'error')
+      showToast(error.message || '회원가입 중 오류가 발생했습니다.', 'error')
     } finally {
       setIsLoading(false)
     }

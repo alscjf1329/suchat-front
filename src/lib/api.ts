@@ -155,11 +155,27 @@ class ApiClient {
     }
   }
 
-  // 회원가입
-  async signUp(userData: SignUpData): Promise<ApiResponse<User>> {
-    return this.request<User>('/auth/signup', {
+  // 회원가입 (이메일 검증 필수)
+  async signUp(userData: SignUpData): Promise<ApiResponse<any>> {
+    return this.request<any>('/auth/signup', {
       method: 'POST',
       body: JSON.stringify(userData),
+    });
+  }
+
+  // 이메일 인증
+  async verifyEmail(token: string): Promise<ApiResponse<any>> {
+    return this.request<any>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+    });
+  }
+
+  // 인증 이메일 재발송
+  async resendVerificationEmail(email: string): Promise<ApiResponse<any>> {
+    return this.request<any>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     });
   }
 
