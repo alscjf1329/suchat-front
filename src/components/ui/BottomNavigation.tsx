@@ -76,7 +76,7 @@ export default function BottomNavigation({
   }
 
   return (
-    <div className="bg-primary border-t border-divider px-4 py-2 safe-bottom-nav">
+    <div className="bg-primary border-t border-divider px-4 py-2">
       <div className="flex items-center justify-between">
         {navigationItems.map(renderNavigationItem)}
       </div>
