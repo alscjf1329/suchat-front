@@ -17,23 +17,39 @@ export type PushInitResult =
  */
 async function waitForServiceWorkerActivation(registration: ServiceWorkerRegistration): Promise<void> {
   // 이미 active 상태면 즉시 반환
-  if (registration.active && navigator.serviceWorker.controller) {
+  if (registration.active) {
     console.log('✅ Service Worker already active');
     return;
   }
 
   // installing 또는 waiting 상태의 worker를 찾음
-  const worker = registration.installing || registration.waiting || registration.active;
+  const worker = registration.installing || registration.waiting;
   
   if (!worker) {
+    // active는 없지만 installing/waiting도 없으면 잠시 대기
+    console.log('⏳ Waiting for Service Worker to appear...');
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // 재확인
+    if (registration.active) {
+      console.log('✅ Service Worker activated');
+      return;
+    }
+    
     throw new Error('No service worker found');
   }
 
   // worker가 activated 상태가 될 때까지 대기
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
-      reject(new Error('Service Worker activation timeout'));
-    }, 30000); // 30초 타임아웃
+      // 타임아웃 시 registration.active가 있으면 성공으로 처리
+      if (registration.active) {
+        console.log('✅ Service Worker active (timeout fallback)');
+        resolve();
+      } else {
+        reject(new Error('Service Worker activation timeout'));
+      }
+    }, 10000); // 10초 타임아웃
 
     if (worker.state === 'activated') {
       clearTimeout(timeout);
@@ -51,7 +67,13 @@ async function waitForServiceWorkerActivation(registration: ServiceWorkerRegistr
       } else if (worker.state === 'redundant') {
         clearTimeout(timeout);
         worker.removeEventListener('statechange', handler);
-        reject(new Error('Service Worker became redundant'));
+        // redundant가 되면 registration.active 확인
+        if (registration.active) {
+          console.log('✅ Service Worker active (redundant fallback)');
+          resolve();
+        } else {
+          reject(new Error('Service Worker became redundant'));
+        }
       }
     });
   });
@@ -73,8 +95,8 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     if (existingRegistration) {
       console.log('✅ Using existing Service Worker registration');
       
-      // 이미 active 상태가 아니면 대기
-      if (!existingRegistration.active || !navigator.serviceWorker.controller) {
+      // active 상태가 아니면 대기
+      if (!existingRegistration.active) {
         console.log('⏳ Waiting for Service Worker to activate...');
         await waitForServiceWorkerActivation(existingRegistration);
       }
@@ -86,13 +108,16 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
     console.log('📝 Registering new Service Worker...');
     const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/',
+      updateViaCache: 'none', // 항상 최신 버전 확인
     });
 
     console.log('✅ Service Worker registered:', registration.scope);
 
     // Service Worker가 active 상태가 될 때까지 대기
-    console.log('⏳ Waiting for Service Worker to activate...');
-    await waitForServiceWorkerActivation(registration);
+    if (!registration.active) {
+      console.log('⏳ Waiting for Service Worker to activate...');
+      await waitForServiceWorkerActivation(registration);
+    }
     console.log('✅ Service Worker is now active');
 
     // Service Worker 업데이트 확인

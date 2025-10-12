@@ -134,9 +134,8 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#2563eb" />
         <meta name="msapplication-tap-highlight" content="no" />
         
-        {/* 보안 관련 */}
+        {/* 보안 관련 (X-Frame-Options는 서버 헤더에서 설정) */}
         <meta httpEquiv="X-Content-Type-Options" content="nosniff" />
-        <meta httpEquiv="X-Frame-Options" content="DENY" />
         <meta httpEquiv="X-XSS-Protection" content="1; mode=block" />
         
         {/* 성능 최적화 */}
