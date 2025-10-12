@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Input, Button, BottomNavigation, Toast, ToastType } from '@/components/ui'
-import { getCurrentUser, apiClient, User } from '@/lib/api'
+import { useAuth } from '@/contexts/AuthContext'
+import { apiClient, User } from '@/lib/api'
 import socketClient, { ChatRoom } from '@/lib/socket'
 
 interface ToastState {
@@ -14,6 +15,7 @@ interface ToastState {
 
 export default function ChatListPage() {
   const router = useRouter()
+  const { user: currentUser, isLoading: authLoading, logout } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [friendSearchQuery, setFriendSearchQuery] = useState('')
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
@@ -23,7 +25,6 @@ export default function ChatListPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingFriends, setIsLoadingFriends] = useState(false)
   const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' })
-  const currentUser = getCurrentUser()
 
   // 친구 검색 필터링
   const filteredFriends = friends.filter(friend => 
@@ -40,6 +41,9 @@ export default function ChatListPage() {
   }
 
   useEffect(() => {
+    // 인증 로딩 중이면 대기
+    if (authLoading) return
+    
     if (!currentUser) {
       router.push('/login')
       return
@@ -63,7 +67,7 @@ export default function ChatListPage() {
       window.removeEventListener('focus', handleFocus)
       socketClient.disconnect()
     }
-  }, [])
+  }, [authLoading, currentUser])
 
   const loadFriends = async () => {
     if (!currentUser) return
@@ -107,9 +111,8 @@ export default function ChatListPage() {
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('user')
-    router.push('/login')
+  const handleLogout = async () => {
+    await logout()
   }
 
   const handleOpenCreateModal = () => {

@@ -3,13 +3,15 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useTranslation } from '@/contexts/I18nContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { Input, Button } from '@/components/ui'
 import Toast, { ToastType } from '@/components/ui/Toast'
-import { getCurrentUser, apiClient } from '@/lib/api'
+import { apiClient } from '@/lib/api'
 import socketClient, { Message as SocketMessage, ChatRoom } from '@/lib/socket'
 
 export default function ChatRoomPage() {
   const { t } = useTranslation()
+  const { user: currentUser, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const params = useParams()
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -23,7 +25,6 @@ export default function ChatRoomPage() {
   const [uploadingFile, setUploadingFile] = useState(false)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
-  const currentUser = getCurrentUser()
 
   const showToast = (message: string, type: ToastType = 'info') => {
     setToast({ message, type })
@@ -33,6 +34,9 @@ export default function ChatRoomPage() {
   const chatId = params?.id as string
 
   useEffect(() => {
+    // 인증 로딩 중이면 대기
+    if (authLoading) return
+    
     if (!currentUser) {
       router.push('/login')
       return
@@ -92,7 +96,7 @@ export default function ChatRoomPage() {
       socketClient.offRoomInfo()
       socketClient.offUnreadCount()
     }
-  }, [chatId])
+  }, [authLoading, currentUser, chatId])
 
   // 명시적으로 채팅방 나가기
   const handleLeaveRoom = async () => {

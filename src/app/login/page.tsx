@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { FormField, Button, LanguageSwitcher, Toast, ToastType } from '@/components/ui'
 import { useTranslation } from '@/contexts/I18nContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, SignInData } from '@/lib/api'
 import { detectDeviceType } from '@/lib/device'
 
@@ -20,6 +21,7 @@ export default function LoginPage() {
   const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' })
   const router = useRouter()
   const { t } = useTranslation()
+  const { login } = useAuth()
 
   const showToast = (message: string, type: ToastType = 'info') => {
     setToast({ show: true, message, type })
@@ -46,15 +48,10 @@ export default function LoginPage() {
       const response = await apiClient.signIn(signInData)
       
       if (response.success && response.data) {
-        // Access Token + Refresh Token + 사용자 정보 저장
+        // AuthContext를 통해 로그인 처리
         const { accessToken, refreshToken, user } = response.data
+        login(accessToken, refreshToken, user, deviceType)
         
-        localStorage.setItem('accessToken', accessToken)
-        localStorage.setItem('refreshToken', refreshToken)
-        localStorage.setItem('user', JSON.stringify(user))
-        localStorage.setItem('deviceType', deviceType)
-        
-        console.log(`✅ 로그인 성공 (${deviceType}) - 토큰 저장 완료`)
         showToast('로그인에 성공했습니다! 🎉', 'success')
         
         // 토스트를 보여준 후 페이지 이동

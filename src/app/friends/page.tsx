@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/contexts/I18nContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { Input, Button, BottomNavigation, Toast, ToastType } from '@/components/ui'
-import { apiClient, getCurrentUser, User } from '@/lib/api'
+import { apiClient, User } from '@/lib/api'
 
 export default function FriendsPage() {
   const { t } = useTranslation()
+  const { user: currentUser, isLoading: authLoading } = useAuth()
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'friends' | 'requests'>('friends')
@@ -24,7 +26,6 @@ export default function FriendsPage() {
     message: '',
     type: 'info',
   })
-  const currentUser = getCurrentUser()
 
   const showToast = (message: string, type: ToastType = 'info') => {
     setToast({ show: true, message, type })
@@ -35,6 +36,9 @@ export default function FriendsPage() {
   }
 
   useEffect(() => {
+    // 인증 로딩 중이면 대기
+    if (authLoading) return
+    
     if (!currentUser) {
       router.push('/login')
       return
@@ -43,7 +47,7 @@ export default function FriendsPage() {
     // 친구 목록만 로드 (전체 유저는 검색 시에만 로드)
     loadFriends()
     loadFriendRequests()
-  }, [])
+  }, [authLoading, currentUser])
 
   const loadFriends = async () => {
     try {

@@ -187,6 +187,14 @@ class ApiClient {
     });
   }
 
+  // 현재 사용자 프로필 조회 (JWT 토큰으로)
+  async getProfile(): Promise<ApiResponse<User>> {
+    return this.request<User>('/auth/profile', {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
   // 사용자 정보 조회
   async getUserById(id: string): Promise<ApiResponse<User>> {
     return this.request<User>(`/auth/user/${id}`, {

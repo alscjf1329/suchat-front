@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/contexts/I18nContext'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useAuth } from '@/contexts/AuthContext'
 import { Input, Button, BottomNavigation } from '@/components/ui'
 import Toast, { ToastType } from '@/components/ui/Toast'
 import { 
@@ -34,6 +35,7 @@ interface SettingItem {
 export default function SettingsPage() {
   const { t } = useTranslation()
   const { theme, setTheme, actualTheme } = useTheme()
+  const { logout } = useAuth()
   const router = useRouter()
   const [expandedSection, setExpandedSection] = useState<string | null>(null)
   const [pushEnabled, setPushEnabled] = useState(false)
@@ -127,8 +129,8 @@ export default function SettingsPage() {
     }
   }
 
-  const handleLogout = () => {
-    router.push('/login')
+  const handleLogout = async () => {
+    await logout()
   }
 
   const handleDeleteAccount = () => {
