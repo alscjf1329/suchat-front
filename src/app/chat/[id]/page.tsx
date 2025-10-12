@@ -154,7 +154,9 @@ export default function ChatRoomPage() {
     if (!file || !currentUser || !chatId) return
 
     // 파일 타입 검증
-    const isImage = file.type.startsWith('image/')
+    const isImage = file.type.startsWith('image/') || 
+                    file.name.toLowerCase().endsWith('.heic') || 
+                    file.name.toLowerCase().endsWith('.heif')
     const isVideo = file.type.startsWith('video/')
     
     if (!isImage && !isVideo) {
@@ -350,9 +352,9 @@ export default function ChatRoomPage() {
   }
 
   return (
-    <div className="h-screen w-full bg-primary flex flex-col">
+    <div className="fixed inset-0 w-full bg-primary flex flex-col">
       {/* 헤더 */}
-      <header className="bg-primary border-b border-divider px-4 h-16 flex items-center justify-between">
+      <header className="bg-primary border-b border-divider px-4 h-16 flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"
@@ -395,7 +397,8 @@ export default function ChatRoomPage() {
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide"
+        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide overscroll-none"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -416,7 +419,7 @@ export default function ChatRoomPage() {
       </div>
 
       {/* 메시지 입력 */}
-      <div className="bg-primary border-t border-divider px-4 py-3">
+      <div className="bg-primary border-t border-divider px-4 py-3 shrink-0 safe-bottom">
         {uploadingFile && (
           <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center space-x-2">
             <span className="text-lg animate-spin">⏳</span>
@@ -428,7 +431,7 @@ export default function ChatRoomPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,video/*"
+            accept="image/*,video/*,.heic,.heif"
             onChange={handleFileChange}
             className="hidden"
           />
