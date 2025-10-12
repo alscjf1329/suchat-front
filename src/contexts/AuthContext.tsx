@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { apiClient, User } from '@/lib/api'
+import { initializePushNotifications } from '@/lib/push'
 
 interface AuthContextType {
   user: User | null
@@ -102,6 +103,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('deviceType', deviceType)
     setUser(userData)
     console.log(`✅ 로그인 완료 (${deviceType})`)
+    
+    // 푸시 알림 자동 초기화 (백그라운드에서 실행)
+    initializePushNotifications(accessToken)
+      .then((result) => {
+        if (result.success) {
+          console.log('✅ 푸시 알림 자동 활성화 완료')
+        } else {
+          console.log('⚠️  푸시 알림 활성화 실패 (사용자가 수동으로 설정에서 활성화 가능)')
+        }
+      })
+      .catch((error) => {
+        console.error('❌ 푸시 알림 초기화 에러:', error)
+      })
   }, [])
 
   // 로그아웃
