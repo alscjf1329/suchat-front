@@ -13,6 +13,51 @@ export type PushInitResult =
   | { success: false; error: unknown };
 
 /**
+ * Service Worker가 active 상태가 될 때까지 대기
+ */
+async function waitForServiceWorkerActivation(registration: ServiceWorkerRegistration): Promise<void> {
+  // 이미 active 상태면 즉시 반환
+  if (registration.active && navigator.serviceWorker.controller) {
+    console.log('✅ Service Worker already active');
+    return;
+  }
+
+  // installing 또는 waiting 상태의 worker를 찾음
+  const worker = registration.installing || registration.waiting || registration.active;
+  
+  if (!worker) {
+    throw new Error('No service worker found');
+  }
+
+  // worker가 activated 상태가 될 때까지 대기
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Service Worker activation timeout'));
+    }, 30000); // 30초 타임아웃
+
+    if (worker.state === 'activated') {
+      clearTimeout(timeout);
+      resolve();
+      return;
+    }
+
+    worker.addEventListener('statechange', function handler() {
+      console.log('🔄 Service Worker state:', worker.state);
+      
+      if (worker.state === 'activated') {
+        clearTimeout(timeout);
+        worker.removeEventListener('statechange', handler);
+        resolve();
+      } else if (worker.state === 'redundant') {
+        clearTimeout(timeout);
+        worker.removeEventListener('statechange', handler);
+        reject(new Error('Service Worker became redundant'));
+      }
+    });
+  });
+}
+
+/**
  * Service Worker 등록
  */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
@@ -22,11 +67,33 @@ export async function registerServiceWorker(): Promise<ServiceWorkerRegistration
   }
 
   try {
+    // 기존 등록 확인
+    const existingRegistration = await navigator.serviceWorker.getRegistration('/');
+    
+    if (existingRegistration) {
+      console.log('✅ Using existing Service Worker registration');
+      
+      // 이미 active 상태가 아니면 대기
+      if (!existingRegistration.active || !navigator.serviceWorker.controller) {
+        console.log('⏳ Waiting for Service Worker to activate...');
+        await waitForServiceWorkerActivation(existingRegistration);
+      }
+      
+      return existingRegistration;
+    }
+
+    // 새로 등록
+    console.log('📝 Registering new Service Worker...');
     const registration = await navigator.serviceWorker.register('/sw.js', {
       scope: '/',
     });
 
     console.log('✅ Service Worker registered:', registration.scope);
+
+    // Service Worker가 active 상태가 될 때까지 대기
+    console.log('⏳ Waiting for Service Worker to activate...');
+    await waitForServiceWorkerActivation(registration);
+    console.log('✅ Service Worker is now active');
 
     // Service Worker 업데이트 확인
     registration.addEventListener('updatefound', () => {
