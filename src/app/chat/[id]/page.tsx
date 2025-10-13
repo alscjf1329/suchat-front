@@ -128,11 +128,10 @@ export default function ChatRoomPage() {
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === 'visible'
       
+      console.log(`👁️ Visibility 변경: ${isVisible ? '보임' : '숨김'}`)
+      
       if (isVisible) {
         console.log('📱 앱이 포어그라운드로 돌아옴')
-        
-        // 서버에 페이지가 보임을 알림
-        socketClient.setVisibility(true)
         
         // 채팅방의 푸시 알림 제거
         if (chatId) {
@@ -144,12 +143,16 @@ export default function ChatRoomPage() {
         // 소켓 재연결 확인
         const socket = socketClient.getSocket()
         if (socket && !socket.connected) {
-          console.log('🔄 소켓 재연결 시도...')
+          console.log('🔄 소켓이 끊어져 있음 - 재연결 시도...')
           socketClient.connect()
-          // 채팅방 재참여
+          // 소켓 재연결 후 채팅방 재참여 (현재 visibility 상태 포함)
           if (currentUser && chatId) {
-            joinChatRoom()
+            setTimeout(() => joinChatRoom(), 500) // 재연결 대기
           }
+        } else {
+          // 소켓은 연결되어 있지만 visibility만 변경된 경우
+          console.log('🔄 소켓 연결 유지 - visibility만 업데이트')
+          socketClient.setVisibility(true)
         }
       } else {
         console.log('📴 앱이 백그라운드로 이동 - 푸시 알림 활성화')
@@ -160,9 +163,6 @@ export default function ChatRoomPage() {
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    
-    // 초기 visibility 설정
-    socketClient.setVisibility(document.visibilityState === 'visible')
 
     return () => {
       // Socket 이벤트 리스너만 제거 (채팅방 참여는 유지)

@@ -135,10 +135,13 @@ class SocketClient {
   async joinRoom(roomId: string, userId: string, roomName?: string): Promise<{ success: boolean; roomId: string }> {
     await this.waitForConnection()
     
-    console.log('📡 채팅방 참여 요청:', { roomId, userId, roomName })
+    // 현재 페이지 가시성 확인
+    const isVisible = typeof document !== 'undefined' ? document.visibilityState === 'visible' : true
+    
+    console.log('📡 채팅방 참여 요청:', { roomId, userId, roomName, isVisible })
     
     return new Promise((resolve, reject) => {
-      this.socket?.emit('join_room', { roomId, userId, roomName }, (response: any) => {
+      this.socket?.emit('join_room', { roomId, userId, roomName, isVisible }, (response: any) => {
         console.log('📥 채팅방 참여 응답:', response)
         if (response) {
           resolve(response)
