@@ -1,12 +1,15 @@
 /**
  * SuChat Service Worker - Custom Version
  * 푸시 알림 및 오프라인 캐싱 처리
- * Version: 2.0.0 (No Workbox)
+ * Version: 2.1.0 (No Workbox)
+ * - 채팅방 ID를 tag로 설정하여 알림 그룹화
+ * - 채팅방 입장 시 알림 자동 제거 지원
  */
 
-const CACHE_NAME = 'suchat-v2';
+const CACHE_NAME = 'suchat-v2.1';
 const OLD_CACHE_NAMES = [
   'suchat-v1',
+  'suchat-v2',
   'workbox-precache-v2',
   'workbox-runtime',
   'workbox-precache',
@@ -22,7 +25,7 @@ const urlsToCache = [
 
 // Service Worker 설치
 self.addEventListener('install', (event) => {
-  console.log('[SW Custom] Install event - v2.0.0');
+  console.log('[SW Custom] Install event - v2.1.0');
   event.waitUntil(
     Promise.all([
       // 1. 모든 오래된 캐시 삭제 (workbox 포함)
@@ -115,13 +118,16 @@ self.addEventListener('push', (event) => {
       const payload = JSON.parse(rawData);
       console.log('[SW] Parsed payload:', payload);
       
+      // roomId가 있으면 tag로 설정하여 같은 채팅방의 알림을 그룹화
+      const tag = payload.data?.roomId || payload.tag || notificationData.tag;
+      
       notificationData = {
         title: payload.title || notificationData.title,
         body: payload.body || notificationData.body,
         icon: payload.icon || notificationData.icon,
         badge: payload.badge || notificationData.badge,
         data: payload.data || notificationData.data,
-        tag: payload.tag || notificationData.tag,
+        tag: tag,
       };
       
       console.log('[SW] Final notification data:', notificationData);
@@ -139,6 +145,7 @@ self.addEventListener('push', (event) => {
     tag: notificationData.tag,
     requireInteraction: false,
     vibrate: [200, 100, 200],
+    renotify: true, // 같은 tag의 알림이 있으면 새로 알림 (진동 포함)
   };
 
   console.log('[SW] Notification options:', options);
