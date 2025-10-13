@@ -167,6 +167,23 @@ export default function ChatRoomPage() {
       socketClient.setVisibility(false)
     }
 
+    // 소켓 연결 상태 확인 및 재연결 (가볍게!)
+    const checkAndReconnectSocket = () => {
+      const socket = socketClient.getSocket()
+      
+      if (!socket || !socket.connected) {
+        console.log('⚠️ 소켓 끊김 - 재연결')
+        socketClient.connect()
+        
+        if (currentUser && chatId) {
+          setTimeout(() => joinChatRoom(), 500)
+        }
+      } else {
+        console.log('✅ 소켓 연결됨')
+        socketClient.setVisibility(true)
+      }
+    }
+
     // Visibility API 처리
     const handleVisibilityChange = () => {
       const isVisible = document.visibilityState === 'visible'
@@ -174,6 +191,7 @@ export default function ChatRoomPage() {
       
       if (isVisible) {
         handleForeground('visibilitychange')
+        checkAndReconnectSocket() // 소켓 확인
       } else {
         handleBackground('visibilitychange')
       }
@@ -183,6 +201,8 @@ export default function ChatRoomPage() {
     const handlePageShow = (event: PageTransitionEvent) => {
       console.log(`📄 [pageshow] persisted: ${event.persisted}`)
       handleForeground('pageshow')
+      // iOS에서 가장 확실한 이벤트 - 소켓 상태 확인
+      checkAndReconnectSocket()
     }
 
     const handlePageHide = () => {
@@ -194,6 +214,8 @@ export default function ChatRoomPage() {
     const handleFocus = () => {
       console.log(`🎯 [focus]`)
       handleForeground('focus')
+      // focus 시에도 소켓 확인
+      checkAndReconnectSocket()
     }
 
     // iOS를 위한 앱 생명주기 이벤트 (최후의 보루)
