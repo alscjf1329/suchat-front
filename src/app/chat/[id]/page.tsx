@@ -299,6 +299,27 @@ export default function ChatRoomPage() {
     
     console.log('✅ 이벤트 리스너 등록 완료')
 
+    // iOS 대비: 가벼운 주기적 체크 (포그라운드일 때만)
+    const intervalId = setInterval(() => {
+      // 페이지가 보이는 상태일 때만 체크
+      if (document.visibilityState === 'visible') {
+        const socket = socketClient.getSocket()
+        
+        // 소켓이 끊어진 경우에만 로그 & 재연결
+        if (!socket || !socket.connected) {
+          console.log('⏰ [interval] 소켓 끊김 감지 - 재연결')
+          socketClient.connect()
+          
+          if (currentUser && chatId) {
+            setTimeout(() => joinChatRoom(), 500)
+          }
+        }
+        // 연결된 경우는 조용히 넘어감 (로그 스팸 방지)
+      }
+    }, 3000) // 3초마다 체크 (가볍게)
+
+    console.log('⏰ 포그라운드 체크 인터벌 시작 (3초)')
+
     return () => {
       // Socket 이벤트 리스너 제거
       socketClient.offNewMessage()
@@ -322,6 +343,10 @@ export default function ChatRoomPage() {
       if (foregroundTimer) {
         clearTimeout(foregroundTimer)
       }
+      
+      // 인터벌 정리
+      clearInterval(intervalId)
+      console.log('⏰ 포그라운드 체크 인터벌 중지')
     }
   }, [authLoading, currentUser, chatId, router, joinChatRoom])
 
