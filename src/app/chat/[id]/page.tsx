@@ -124,10 +124,24 @@ export default function ChatRoomPage() {
       setUnreadCount(data.count)
     })
 
-    // 페이지가 포어그라운드로 돌아올 때 소켓 재연결 확인
+    // 페이지 가시성 변경 처리 (백그라운드/포그라운드)
     const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        console.log('📱 앱이 포어그라운드로 돌아옴 - 소켓 상태 확인')
+      const isVisible = document.visibilityState === 'visible'
+      
+      if (isVisible) {
+        console.log('📱 앱이 포어그라운드로 돌아옴')
+        
+        // 서버에 페이지가 보임을 알림
+        socketClient.setVisibility(true)
+        
+        // 채팅방의 푸시 알림 제거
+        if (chatId) {
+          clearChatNotifications(chatId)
+            .then(() => console.log('✅ 포어그라운드 복귀 시 알림 제거'))
+            .catch((err) => console.error('❌ 알림 제거 실패:', err))
+        }
+        
+        // 소켓 재연결 확인
         const socket = socketClient.getSocket()
         if (socket && !socket.connected) {
           console.log('🔄 소켓 재연결 시도...')
@@ -137,10 +151,18 @@ export default function ChatRoomPage() {
             joinChatRoom()
           }
         }
+      } else {
+        console.log('📴 앱이 백그라운드로 이동 - 푸시 알림 활성화')
+        
+        // 서버에 페이지가 숨겨짐을 알림
+        socketClient.setVisibility(false)
       }
     }
 
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    // 초기 visibility 설정
+    socketClient.setVisibility(document.visibilityState === 'visible')
 
     return () => {
       // Socket 이벤트 리스너만 제거 (채팅방 참여는 유지)

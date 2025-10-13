@@ -253,6 +253,21 @@ class SocketClient {
     })
   }
 
+  // 페이지 가시성 설정 (백그라운드/포그라운드 감지)
+  setVisibility(visible: boolean): void {
+    if (!this.socket || !this.socket.connected) {
+      console.warn('⚠️  소켓이 연결되지 않아 visibility를 설정할 수 없습니다')
+      return
+    }
+
+    console.log(`👁️  페이지 visibility 설정: ${visible ? '보임' : '숨김'}`)
+    this.socket.emit('set_visibility', { visible }, (response: any) => {
+      if (response?.success) {
+        console.log(`✅ Visibility 설정 완료: ${visible}`)
+      }
+    })
+  }
+
   // 이벤트 리스너 등록
   onNewMessage(callback: (message: Message) => void) {
     this.socket?.on('new_message', callback)
