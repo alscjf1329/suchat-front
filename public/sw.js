@@ -1,15 +1,17 @@
 /**
  * SuChat Service Worker - Custom Version
  * 푸시 알림 및 오프라인 캐싱 처리
- * Version: 2.1.0 (No Workbox)
+ * Version: 2.2.0 (No Workbox)
  * - 채팅방 ID를 tag로 설정하여 알림 그룹화
  * - 채팅방 입장 시 알림 자동 제거 지원
+ * - 알림 클릭 시 클라이언트에게 메시지 전송
  */
 
-const CACHE_NAME = 'suchat-v2.1';
+const CACHE_NAME = 'suchat-v2.2';
 const OLD_CACHE_NAMES = [
   'suchat-v1',
   'suchat-v2',
+  'suchat-v2.1',
   'workbox-precache-v2',
   'workbox-runtime',
   'workbox-precache',
@@ -25,7 +27,7 @@ const urlsToCache = [
 
 // Service Worker 설치
 self.addEventListener('install', (event) => {
-  console.log('[SW Custom] Install event - v2.1.0');
+  console.log('[SW Custom] Install event - v2.2.0');
   event.waitUntil(
     Promise.all([
       // 1. 모든 오래된 캐시 삭제 (workbox 포함)
@@ -170,31 +172,48 @@ self.addEventListener('push', (event) => {
 // 알림 클릭 처리
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification clicked:', event.notification.tag);
+  console.log('[SW] Notification data:', event.notification.data);
   
   event.notification.close();
 
-  const urlToOpen = event.notification.data?.roomId 
-    ? `/chat/${event.notification.data.roomId}`
-    : '/chat';
+  const roomId = event.notification.data?.roomId;
+  const urlToOpen = roomId ? `/chat/${roomId}` : '/chat';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
+        console.log('[SW] Found clients:', clientList.length);
+        
         // 이미 열린 창이 있으면 포커스
         for (const client of clientList) {
           if (client.url.includes(urlToOpen) && 'focus' in client) {
+            console.log('[SW] Focusing existing window with target URL');
+            // 클라이언트에게 포그라운드 복귀 알림
+            client.postMessage({
+              type: 'NOTIFICATION_CLICKED',
+              roomId: roomId,
+              timestamp: Date.now()
+            });
             return client.focus();
           }
         }
         
         // 열린 창이 있으면 해당 URL로 이동
         if (clientList.length > 0) {
+          console.log('[SW] Navigating existing window to:', urlToOpen);
           return clientList[0].focus().then((client) => {
+            // 클라이언트에게 포그라운드 복귀 알림
+            client.postMessage({
+              type: 'NOTIFICATION_CLICKED',
+              roomId: roomId,
+              timestamp: Date.now()
+            });
             return client.navigate(urlToOpen);
           });
         }
         
         // 열린 창이 없으면 새 창 열기
+        console.log('[SW] Opening new window:', urlToOpen);
         if (clients.openWindow) {
           return clients.openWindow(urlToOpen);
         }

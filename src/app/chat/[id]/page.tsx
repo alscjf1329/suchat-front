@@ -124,53 +124,131 @@ export default function ChatRoomPage() {
       setUnreadCount(data.count)
     })
 
-    // 페이지 가시성 변경 처리 (백그라운드/포그라운드)
-    const handleVisibilityChange = () => {
-      const isVisible = document.visibilityState === 'visible'
+    // 포그라운드 복귀 처리 (중복 호출 방지용 타이머)
+    let foregroundTimer: NodeJS.Timeout | null = null
+    
+    const handleForeground = (source: string) => {
+      console.log(`📱 [${source}] 포그라운드 이벤트`)
       
-      console.log(`👁️ Visibility 변경: ${isVisible ? '보임' : '숨김'}`)
+      // 짧은 시간 내 중복 호출 방지 (debounce)
+      if (foregroundTimer) {
+        clearTimeout(foregroundTimer)
+      }
       
-      if (isVisible) {
-        console.log('📱 앱이 포어그라운드로 돌아옴')
+      foregroundTimer = setTimeout(() => {
+        console.log('✅ 포그라운드 복귀 처리 실행')
         
         // 채팅방의 푸시 알림 제거
         if (chatId) {
           clearChatNotifications(chatId)
-            .then(() => console.log('✅ 포어그라운드 복귀 시 알림 제거'))
+            .then(() => console.log('✅ 알림 제거 완료'))
             .catch((err) => console.error('❌ 알림 제거 실패:', err))
         }
         
         // 소켓 재연결 확인
         const socket = socketClient.getSocket()
         if (socket && !socket.connected) {
-          console.log('🔄 소켓이 끊어져 있음 - 재연결 시도...')
+          console.log('🔄 소켓 재연결 시도...')
           socketClient.connect()
-          // 소켓 재연결 후 채팅방 재참여 (현재 visibility 상태 포함)
           if (currentUser && chatId) {
-            setTimeout(() => joinChatRoom(), 500) // 재연결 대기
+            setTimeout(() => joinChatRoom(), 500)
           }
-        } else {
-          // 소켓은 연결되어 있지만 visibility만 변경된 경우
-          console.log('🔄 소켓 연결 유지 - visibility만 업데이트')
+        } else if (socket) {
           socketClient.setVisibility(true)
         }
-      } else {
-        console.log('📴 앱이 백그라운드로 이동 - 푸시 알림 활성화')
         
-        // 서버에 페이지가 숨겨짐을 알림
-        socketClient.setVisibility(false)
+        foregroundTimer = null
+      }, 100) // 100ms 디바운스
+    }
+
+    // 백그라운드 처리
+    const handleBackground = (source: string) => {
+      console.log(`📴 [${source}] 백그라운드 이벤트`)
+      socketClient.setVisibility(false)
+    }
+
+    // Visibility API 처리
+    const handleVisibilityChange = () => {
+      const isVisible = document.visibilityState === 'visible'
+      console.log(`👁️ [visibilitychange] ${isVisible ? '보임' : '숨김'}`)
+      
+      if (isVisible) {
+        handleForeground('visibilitychange')
+      } else {
+        handleBackground('visibilitychange')
       }
     }
 
+    // iOS Safari/PWA를 위한 pageshow/pagehide 이벤트
+    const handlePageShow = (event: PageTransitionEvent) => {
+      console.log(`📄 [pageshow] persisted: ${event.persisted}`)
+      handleForeground('pageshow')
+    }
+
+    const handlePageHide = () => {
+      console.log(`📄 [pagehide]`)
+      handleBackground('pagehide')
+    }
+
+    // iOS를 위한 focus 이벤트 (보험)
+    const handleFocus = () => {
+      console.log(`🎯 [focus]`)
+      handleForeground('focus')
+    }
+
+    // Service Worker 메시지 리스너 (푸시 알림 클릭 감지)
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICKED') {
+        console.log('🔔 [SW] 푸시 알림 클릭 감지')
+        
+        const clickedRoomId = event.data.roomId
+        if (clickedRoomId && clickedRoomId === chatId) {
+          handleForeground('notification-click')
+        }
+      }
+    }
+
+    // 이벤트 리스너 등록
+    console.log('🎯 이벤트 리스너 등록 (iOS 대응)')
+    
+    // 표준 Visibility API (Desktop, Android)
     document.addEventListener('visibilitychange', handleVisibilityChange)
+    
+    // iOS Safari/PWA 대응 (bfcache)
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('pagehide', handlePageHide)
+    
+    // iOS 추가 대응 (보험)
+    window.addEventListener('focus', handleFocus)
+    
+    // Service Worker 메시지
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
+    }
+    
+    console.log('✅ 이벤트 리스너 등록 완료')
 
     return () => {
-      // Socket 이벤트 리스너만 제거 (채팅방 참여는 유지)
+      // Socket 이벤트 리스너 제거
       socketClient.offNewMessage()
       socketClient.offRoomMessages()
       socketClient.offRoomInfo()
       socketClient.offUnreadCount()
+      
+      // 이벤트 리스너 제거
       document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('pagehide', handlePageHide)
+      window.removeEventListener('focus', handleFocus)
+      
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
+      }
+      
+      // 타이머 정리
+      if (foregroundTimer) {
+        clearTimeout(foregroundTimer)
+      }
     }
   }, [authLoading, currentUser, chatId, router, joinChatRoom])
 
