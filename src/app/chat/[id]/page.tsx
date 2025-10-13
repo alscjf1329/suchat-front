@@ -210,11 +210,38 @@ export default function ChatRoomPage() {
     // Service Worker 메시지 리스너 (푸시 알림 클릭 감지)
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data?.type === 'NOTIFICATION_CLICKED') {
-        console.log('🔔 [SW] 푸시 알림 클릭 감지')
+        console.log('🔔 [SW] 푸시 알림 클릭 감지 - 즉시 처리')
         
         const clickedRoomId = event.data.roomId
-        if (clickedRoomId && clickedRoomId === chatId) {
-          handleForeground('notification-click')
+        
+        // 푸시 클릭 = 무조건 포그라운드 상태!
+        // debounce 없이 즉시 처리
+        console.log('✅ 푸시 클릭 - 소켓 및 알림 즉시 처리')
+        
+        // 알림 제거 (클릭한 채팅방이든 아니든 모두 제거)
+        if (chatId) {
+          clearChatNotifications(chatId)
+            .then(() => console.log('✅ 알림 제거 완료'))
+            .catch((err) => console.error('❌ 알림 제거 실패:', err))
+        }
+        
+        // 소켓 상태 확인 및 재연결
+        const socket = socketClient.getSocket()
+        if (!socket || !socket.connected) {
+          console.log('🔄 소켓 끊김 - 즉시 재연결')
+          socketClient.connect()
+          
+          // 소켓 재연결 후 채팅방 재참여
+          if (currentUser && chatId) {
+            setTimeout(() => {
+              joinChatRoom()
+              console.log('✅ 채팅방 재참여 완료')
+            }, 500)
+          }
+        } else {
+          // 소켓이 연결되어 있으면 visibility만 업데이트
+          console.log('✅ 소켓 연결됨 - visibility 업데이트')
+          socketClient.setVisibility(true)
         }
       }
     }
