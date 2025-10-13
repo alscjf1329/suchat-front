@@ -38,6 +38,11 @@ class SocketClient {
       this.socket = io(SOCKET_URL, {
         transports: ['websocket'],
         autoConnect: true,
+        reconnection: true, // 자동 재연결 활성화
+        reconnectionAttempts: Infinity, // 무한 재시도
+        reconnectionDelay: 1000, // 1초 대기 후 재연결
+        reconnectionDelayMax: 5000, // 최대 5초까지 대기
+        timeout: 20000, // 연결 타임아웃 20초
       })
 
       this.socket.on('connect', () => {
@@ -45,14 +50,37 @@ class SocketClient {
         console.log('✅ Socket 연결됨:', this.socket?.id)
       })
 
-      this.socket.on('disconnect', () => {
+      this.socket.on('disconnect', (reason) => {
         this.isConnected = false
-        console.log('❌ Socket 연결 해제됨')
+        console.log('❌ Socket 연결 해제됨:', reason)
+        
+        // 서버에서 강제로 끊은 경우가 아니면 자동 재연결 시도
+        if (reason === 'io server disconnect') {
+          console.log('🔄 서버에서 연결을 끊음 - 수동 재연결 시도')
+          this.socket?.connect()
+        }
+      })
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        this.isConnected = true
+        console.log(`🔄 Socket 재연결 성공 (시도 횟수: ${attemptNumber})`)
+      })
+
+      this.socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log(`🔄 Socket 재연결 시도 중... (${attemptNumber}번째)`)
+      })
+
+      this.socket.on('reconnect_error', (error) => {
+        console.error('❌ Socket 재연결 실패:', error)
       })
 
       this.socket.on('error', (error) => {
         console.error('❌ Socket 에러:', error)
       })
+    } else if (!this.socket.connected) {
+      // 소켓은 있지만 연결이 끊긴 경우 재연결
+      console.log('🔄 기존 소켓 재연결 시도...')
+      this.socket.connect()
     }
 
     return this.socket

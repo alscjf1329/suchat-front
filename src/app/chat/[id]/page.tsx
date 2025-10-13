@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useTranslation } from '@/contexts/I18nContext'
 import { useAuth } from '@/contexts/AuthContext'
@@ -8,6 +8,7 @@ import { Input, Button } from '@/components/ui'
 import Toast, { ToastType } from '@/components/ui/Toast'
 import { apiClient } from '@/lib/api'
 import socketClient, { Message as SocketMessage, ChatRoom } from '@/lib/socket'
+import { clearChatNotifications } from '@/lib/push'
 
 export default function ChatRoomPage() {
   const { t } = useTranslation()
@@ -33,17 +34,49 @@ export default function ChatRoomPage() {
   // URL에서 채팅방 ID 가져오기
   const chatId = params?.id as string
 
+  // 채팅방 참여 함수 (useCallback으로 최적화)
+  const joinChatRoom = useCallback(async () => {
+    if (!currentUser || !chatId) return
+
+    try {
+      await socketClient.joinRoom(chatId, currentUser.id)
+    } catch (error) {
+      console.error('채팅방 참여 실패:', error)
+      router.push('/chat')
+    }
+  }, [currentUser, chatId, router])
+
   useEffect(() => {
     // 인증 로딩 중이면 대기
-    if (authLoading) return
+    if (authLoading) {
+      console.log('⏳ 인증 로딩 중... 소켓 연결 대기')
+      return
+    }
     
     if (!currentUser) {
+      console.log('🔒 사용자 없음 - 로그인 페이지로 이동')
       router.push('/login')
       return
     }
 
-    // Socket 연결
+    console.log('✅ 인증 완료 - 소켓 연결 시작')
+
+    // Socket 연결 (AuthContext가 완전히 로드된 후)
     const socket = socketClient.connect()
+
+    // 채팅방의 푸시 알림 모두 제거
+    if (chatId) {
+      console.log('🗑️  채팅방 푸시 알림 제거 시작:', chatId)
+      clearChatNotifications(chatId)
+        .then((success) => {
+          if (success) {
+            console.log('✅ 채팅방 푸시 알림 제거 완료')
+          }
+        })
+        .catch((err) => {
+          console.error('❌ 푸시 알림 제거 실패:', err)
+        })
+    }
 
     // 채팅방 참여
     joinChatRoom()
@@ -89,14 +122,33 @@ export default function ChatRoomPage() {
       setUnreadCount(data.count)
     })
 
+    // 페이지가 포어그라운드로 돌아올 때 소켓 재연결 확인
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('📱 앱이 포어그라운드로 돌아옴 - 소켓 상태 확인')
+        const socket = socketClient.getSocket()
+        if (socket && !socket.connected) {
+          console.log('🔄 소켓 재연결 시도...')
+          socketClient.connect()
+          // 채팅방 재참여
+          if (currentUser && chatId) {
+            joinChatRoom()
+          }
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
     return () => {
       // Socket 이벤트 리스너만 제거 (채팅방 참여는 유지)
       socketClient.offNewMessage()
       socketClient.offRoomMessages()
       socketClient.offRoomInfo()
       socketClient.offUnreadCount()
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [authLoading, currentUser, chatId])
+  }, [authLoading, currentUser, chatId, router, joinChatRoom])
 
   // 명시적으로 채팅방 나가기
   const handleLeaveRoom = async () => {
@@ -104,17 +156,6 @@ export default function ChatRoomPage() {
     
     await socketClient.leaveRoom(chatId, currentUser.id)
     router.push('/chat')
-  }
-
-  const joinChatRoom = async () => {
-    if (!currentUser || !chatId) return
-
-    try {
-      await socketClient.joinRoom(chatId, currentUser.id)
-    } catch (error) {
-      console.error('채팅방 참여 실패:', error)
-      router.push('/chat')
-    }
   }
 
   // 메시지 전송

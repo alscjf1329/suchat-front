@@ -398,3 +398,76 @@ export async function sendTestPush(token: string): Promise<boolean> {
   }
 }
 
+/**
+ * 특정 채팅방의 모든 푸시 알림 제거
+ */
+export async function clearChatNotifications(roomId: string): Promise<boolean> {
+  try {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      console.warn('Service Worker not supported');
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.getRegistration('/');
+    if (!registration) {
+      console.warn('No service worker registration found');
+      return false;
+    }
+
+    // 현재 표시된 모든 알림 가져오기
+    const notifications = await registration.getNotifications();
+    
+    console.log('📬 총 알림 개수:', notifications.length);
+    
+    // 해당 채팅방의 알림만 필터링하여 제거
+    let clearedCount = 0;
+    for (const notification of notifications) {
+      // tag가 roomId와 일치하거나, data.roomId가 일치하는 경우 제거
+      if (notification.tag === roomId || notification.data?.roomId === roomId) {
+        notification.close();
+        clearedCount++;
+      }
+    }
+    
+    console.log(`🗑️  ${clearedCount}개의 알림 제거됨 (채팅방: ${roomId})`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to clear notifications:', error);
+    return false;
+  }
+}
+
+/**
+ * 모든 푸시 알림 제거
+ */
+export async function clearAllNotifications(): Promise<boolean> {
+  try {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+      console.warn('Service Worker not supported');
+      return false;
+    }
+
+    const registration = await navigator.serviceWorker.getRegistration('/');
+    if (!registration) {
+      console.warn('No service worker registration found');
+      return false;
+    }
+
+    // 현재 표시된 모든 알림 가져오기
+    const notifications = await registration.getNotifications();
+    
+    console.log('📬 총 알림 개수:', notifications.length);
+    
+    // 모든 알림 제거
+    for (const notification of notifications) {
+      notification.close();
+    }
+    
+    console.log(`🗑️  ${notifications.length}개의 알림 모두 제거됨`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to clear all notifications:', error);
+    return false;
+  }
+}
+
