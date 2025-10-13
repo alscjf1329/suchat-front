@@ -22,6 +22,7 @@ const PUBLIC_PATHS = ['/login', '/signup', '/verify-email', '/forgot-password', 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
   const router = useRouter()
   const pathname = usePathname()
 
@@ -68,32 +69,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // 앱 시작 시 자동 로그인 체크
+  // 초기 인증 확인 (앱 시작 시 한 번만)
   useEffect(() => {
-    const checkAuth = async () => {
+    if (isInitialized) return
+    
+    console.log('🔍 [AuthContext] 초기 인증 확인 시작')
+    
+    const initAuth = async () => {
       setIsLoading(true)
       
       const user = await loadUserFromToken()
       
-      if (user) {
-        // 로그인 성공 - 공개 경로에 있으면 채팅 페이지로 이동
-        if (isPublicPath) {
-          console.log('✅ 이미 로그인됨 - 채팅 페이지로 이동')
-          router.replace('/chat')
-        }
-      } else {
-        // 로그인 실패 - 보호된 경로에 있으면 로그인 페이지로 이동
-        if (!isPublicPath && pathname !== '/') {
-          console.log('🔒 인증 필요 - 로그인 페이지로 이동')
-          router.replace('/login')
-        }
-      }
+      console.log('🔍 [AuthContext] 초기 인증 결과:', user ? user.email : 'null')
       
       setIsLoading(false)
+      setIsInitialized(true)
     }
 
-    checkAuth()
-  }, [pathname])
+    initAuth()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // 경로 변경 시 인증 확인 및 리다이렉션
+  useEffect(() => {
+    if (!isInitialized) {
+      console.log('🔍 [AuthContext] 초기화 대기 중...')
+      return
+    }
+    
+    console.log('🔍 [AuthContext] 경로 변경 감지 - pathname:', pathname, 'user:', user?.email || 'null')
+    
+    if (user) {
+      // 로그인 상태 - 공개 경로에 있으면 채팅 페이지로 이동
+      if (isPublicPath && pathname !== '/') {
+        console.log('✅ 로그인 상태에서 공개 페이지 접근 - 채팅 페이지로 이동')
+        router.replace('/chat')
+      }
+    } else {
+      // 비로그인 상태 - 보호된 경로에 있으면 로그인 페이지로 이동
+      if (!isPublicPath && pathname !== '/') {
+        console.log('🔒 비로그인 상태에서 보호 페이지 접근 - 로그인 페이지로 이동')
+        router.replace('/login')
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, user, isInitialized])
 
   // 로그인
   const login = useCallback((accessToken: string, refreshToken: string, userData: User, deviceType: string) => {

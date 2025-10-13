@@ -47,19 +47,21 @@ export default function ChatRoomPage() {
   }, [currentUser, chatId, router])
 
   useEffect(() => {
+    console.log('🔍 [ChatRoom] useEffect 실행 - authLoading:', authLoading, 'currentUser:', currentUser?.email || 'null', 'chatId:', chatId)
+    
     // 인증 로딩 중이면 대기
     if (authLoading) {
-      console.log('⏳ 인증 로딩 중... 소켓 연결 대기')
+      console.log('⏳ [ChatRoom] 인증 로딩 중... 소켓 연결 대기')
       return
     }
     
     if (!currentUser) {
-      console.log('🔒 사용자 없음 - 로그인 페이지로 이동')
+      console.log('🔒 [ChatRoom] 사용자 없음 - 로그인 페이지로 이동')
       router.push('/login')
       return
     }
 
-    console.log('✅ 인증 완료 - 소켓 연결 시작')
+    console.log('✅ [ChatRoom] 인증 완료 - 소켓 연결 시작')
 
     // Socket 연결 (AuthContext가 완전히 로드된 후)
     const socket = socketClient.connect()
