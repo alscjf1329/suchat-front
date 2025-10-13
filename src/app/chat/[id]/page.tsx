@@ -196,6 +196,17 @@ export default function ChatRoomPage() {
       handleForeground('focus')
     }
 
+    // iOS를 위한 앱 생명주기 이벤트 (최후의 보루)
+    const handleResume = () => {
+      console.log(`🔄 [resume] 앱 재개`)
+      handleForeground('resume')
+    }
+
+    const handlePause = () => {
+      console.log(`⏸️  [pause] 앱 일시정지`)
+      handleBackground('pause')
+    }
+
     // Service Worker 메시지 리스너 (푸시 알림 클릭 감지)
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data?.type === 'NOTIFICATION_CLICKED') {
@@ -210,6 +221,13 @@ export default function ChatRoomPage() {
 
     // 이벤트 리스너 등록
     console.log('🎯 이벤트 리스너 등록 (iOS 대응)')
+    console.log('📊 환경 정보:', {
+      userAgent: navigator.userAgent,
+      standalone: (window.navigator as any).standalone,
+      displayMode: window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser',
+      visibilitySupported: typeof document.visibilityState !== 'undefined',
+      serviceWorkerSupported: 'serviceWorker' in navigator
+    })
     
     // 표준 Visibility API (Desktop, Android)
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -220,6 +238,10 @@ export default function ChatRoomPage() {
     
     // iOS 추가 대응 (보험)
     window.addEventListener('focus', handleFocus)
+    
+    // iOS 앱 생명주기 이벤트 (Cordova/Capacitor 스타일)
+    document.addEventListener('resume', handleResume)
+    document.addEventListener('pause', handlePause)
     
     // Service Worker 메시지
     if ('serviceWorker' in navigator) {
@@ -240,6 +262,8 @@ export default function ChatRoomPage() {
       window.removeEventListener('pageshow', handlePageShow)
       window.removeEventListener('pagehide', handlePageHide)
       window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('resume', handleResume)
+      document.removeEventListener('pause', handlePause)
       
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
