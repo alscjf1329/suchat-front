@@ -675,7 +675,7 @@ export default function ChatRoomPage() {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/*,video/*,.heic,.heif"
+            accept="image/*,video/*,.heic,.heif,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg,.mp4,.webm,.mov,.m4v"
             onChange={handleFileChange}
             className="hidden"
           />
