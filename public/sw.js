@@ -1,19 +1,21 @@
 /**
  * SuChat Service Worker - Custom Version
  * 푸시 알림 및 오프라인 캐싱 처리
- * Version: 2.3.0 (No Workbox)
+ * Version: 2.4.0 (No Workbox)
  * - 채팅방 ID를 tag로 설정하여 알림 그룹화
  * - 채팅방 입장 시 알림 자동 제거 지원
  * - 알림 클릭 시 모든 클라이언트에게 즉시 메시지 전송
  * - 푸시 클릭 시 무조건 소켓 재연결 보장
+ * - API 요청과 파일 업로드는 캐시하지 않음 ⭐ NEW
  */
 
-const CACHE_NAME = 'suchat-v2.3';
+const CACHE_NAME = 'suchat-v2.4';
 const OLD_CACHE_NAMES = [
   'suchat-v1',
   'suchat-v2',
   'suchat-v2.1',
   'suchat-v2.2',
+  'suchat-v2.3',
   'workbox-precache-v2',
   'workbox-runtime',
   'workbox-precache',
@@ -29,7 +31,7 @@ const urlsToCache = [
 
 // Service Worker 설치
 self.addEventListener('install', (event) => {
-  console.log('[SW Custom] Install event - v2.3.0');
+  console.log('[SW Custom] Install event - v2.4.0');
   event.waitUntil(
     Promise.all([
       // 1. 모든 오래된 캐시 삭제 (workbox 포함)
@@ -86,15 +88,45 @@ self.addEventListener('activate', (event) => {
 
 // Fetch 이벤트 처리
 self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  
+  // API 요청, 파일 업로드, Socket.IO는 캐시하지 않음
+  const isApiRequest = url.pathname.startsWith('/api') || 
+                       url.pathname.startsWith('/auth') || 
+                       url.pathname.startsWith('/file') || 
+                       url.pathname.startsWith('/push') || 
+                       url.pathname.startsWith('/users') || 
+                       url.pathname.startsWith('/friends') || 
+                       url.pathname.startsWith('/socket.io') ||
+                       url.pathname.startsWith('/uploads'); // 업로드된 파일
+  
+  // 다른 도메인 요청 (백엔드 API)
+  const isDifferentOrigin = url.origin !== self.location.origin;
+  
+  // API 요청이나 다른 도메인 요청은 항상 네트워크로
+  if (isApiRequest || isDifferentOrigin) {
+    console.log('[SW] Bypassing cache for:', event.request.url);
+    event.respondWith(fetch(event.request));
+    return;
+  }
+  
+  // 정적 파일만 캐시 사용
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
-        // 캐시에 있으면 캐시 반환, 없으면 네트워크 요청
-        return response || fetch(event.request);
+        if (response) {
+          console.log('[SW] Cache hit:', event.request.url);
+          return response;
+        }
+        
+        console.log('[SW] Cache miss, fetching:', event.request.url);
+        return fetch(event.request);
       })
       .catch(() => {
-        // 오프라인 상태에서 기본 페이지 반환
-        return caches.match('/');
+        // 오프라인 상태에서 기본 페이지 반환 (HTML만)
+        if (event.request.mode === 'navigate') {
+          return caches.match('/');
+        }
       })
   );
 });

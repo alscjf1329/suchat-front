@@ -398,13 +398,29 @@ export default function ChatRoomPage() {
     const file = e.target.files?.[0]
     if (!file || !currentUser || !chatId) return
 
-    // 파일 타입 검증
-    const isImage = file.type.startsWith('image/') || 
-                    file.name.toLowerCase().endsWith('.heic') || 
-                    file.name.toLowerCase().endsWith('.heif')
-    const isVideo = file.type.startsWith('video/')
+    console.log('📤 파일 선택됨:', {
+      name: file.name,
+      type: file.type,
+      size: file.size,
+    })
+
+    // 파일 타입 검증 (더 안전하게)
+    const fileExtension = file.name.toLowerCase().split('.').pop() || ''
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
+    const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
+    
+    const isImage = file.type.startsWith('image/') || imageExtensions.includes(fileExtension)
+    const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension)
+    
+    console.log('🔍 파일 타입 검증:', {
+      extension: fileExtension,
+      mimeType: file.type,
+      isImage,
+      isVideo
+    })
     
     if (!isImage && !isVideo) {
+      console.log('❌ 허용되지 않은 파일 타입')
       showToast('이미지 또는 동영상 파일만 업로드할 수 있습니다.', 'error')
       return
     }
@@ -418,7 +434,7 @@ export default function ChatRoomPage() {
     try {
       setUploadingFile(true)
 
-      console.log('📤 파일 업로드 시작:', file.name)
+      console.log('📤 파일 업로드 시작:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`)
 
       // 파일 업로드 (서버에서 처리 완료될 때까지 대기)
       const result = await apiClient.uploadFile(file, currentUser.id, chatId)

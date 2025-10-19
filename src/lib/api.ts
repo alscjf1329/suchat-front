@@ -344,30 +344,78 @@ class ApiClient {
 
   // 파일 업로드
   async uploadFile(file: File, userId: string, roomId: string): Promise<any> {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('userId', userId);
-    formData.append('roomId', roomId);
+    console.log('📤 [API] 파일 업로드 시작:', {
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      userId,
+      roomId,
+      baseURL: this.baseURL
+    });
 
-    const url = `${this.baseURL}/file/upload`;
-    
     try {
+      // FormData 생성
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('userId', userId);
+      formData.append('roomId', roomId);
+
+      const url = `${this.baseURL}/file/upload`;
+      
+      console.log('🌐 [API] 요청 URL:', url);
+      console.log('📋 [API] FormData 내용:', {
+        file: file.name,
+        userId,
+        roomId
+      });
+      
       const response = await fetch(url, {
         method: 'POST',
         body: formData,
-        headers: this.getAuthHeaders(),
+        // FormData 사용 시 Content-Type 헤더를 설정하지 않음
+        // 브라우저가 자동으로 multipart/form-data와 boundary 설정
       });
 
+      console.log('📡 [API] 응답 수신:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      // 에러 응답 처리
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || '파일 업로드에 실패했습니다.');
+        let errorMessage = '파일 업로드에 실패했습니다.';
+        
+        try {
+          const error = await response.json();
+          errorMessage = error.message || errorMessage;
+          console.error('❌ [API] 백엔드 에러:', error);
+        } catch (jsonError) {
+          // JSON 파싱 실패 시 텍스트로 읽기
+          try {
+            const errorText = await response.text();
+            console.error('❌ [API] 에러 응답 (텍스트):', errorText);
+            errorMessage = errorText.substring(0, 200);
+          } catch (textError) {
+            console.error('❌ [API] 에러 응답 읽기 실패');
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
+      // 성공 응답 처리
       const result = await response.json();
-      console.log('📦 백엔드 응답:', result);
+      console.log('✅ [API] 파일 업로드 완료:', result);
       return result;
+      
     } catch (error) {
-      console.error('❌ 파일 업로드 에러:', error);
+      console.error('❌ [API] 파일 업로드 예외:', {
+        error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
+      
       throw error;
     }
   }
