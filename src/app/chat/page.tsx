@@ -61,22 +61,36 @@ export default function ChatListPage() {
       loadChatRooms()
     }
 
+    // 푸시 알림 클릭 처리 함수 (공통)
+    const handleNotificationClick = (data: any) => {
+      console.log('🔔 [ChatList] 푸시 알림 클릭 처리 시작')
+      
+      const clickedRoomId = data.roomId
+      const urlToOpen = data.urlToOpen
+      
+      console.log('📍 클릭한 채팅방:', clickedRoomId)
+      console.log('📍 이동할 URL:', urlToOpen)
+      
+      // 해당 채팅방으로 이동
+      if (urlToOpen) {
+        console.log('🔄 채팅방으로 이동:', urlToOpen)
+        router.push(urlToOpen)
+      }
+    }
+
     // Service Worker 메시지 리스너 (푸시 알림 클릭 감지)
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data?.type === 'NOTIFICATION_CLICKED') {
-        console.log('🔔 [SW] 푸시 알림 클릭 감지 - 채팅방으로 이동')
-        
-        const clickedRoomId = event.data.roomId
-        const urlToOpen = event.data.urlToOpen
-        
-        console.log('📍 클릭한 채팅방:', clickedRoomId)
-        console.log('📍 이동할 URL:', urlToOpen)
-        
-        // 해당 채팅방으로 이동
-        if (urlToOpen) {
-          console.log('🔄 채팅방으로 이동:', urlToOpen)
-          router.push(urlToOpen)
-        }
+        console.log('🔔 [postMessage] 푸시 알림 클릭 감지')
+        handleNotificationClick(event.data)
+      }
+    }
+
+    // BroadcastChannel 리스너 (백그라운드 → 포그라운드 전환 시)
+    const handleBroadcastMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICKED') {
+        console.log('🔔 [BroadcastChannel] 푸시 알림 클릭 감지')
+        handleNotificationClick(event.data)
       }
     }
 
@@ -86,12 +100,31 @@ export default function ChatListPage() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
     }
+    
+    // BroadcastChannel (백그라운드 → 포그라운드 전환 시 알림 클릭 처리)
+    let broadcastChannel: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        broadcastChannel = new BroadcastChannel('notification-click-channel')
+        broadcastChannel.addEventListener('message', handleBroadcastMessage)
+        console.log('✅ [ChatList] BroadcastChannel 등록 완료')
+      } catch (e) {
+        console.log('⚠️ [ChatList] BroadcastChannel 사용 불가')
+      }
+    }
 
     return () => {
       window.removeEventListener('focus', handleFocus)
       
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
+      }
+      
+      // BroadcastChannel 정리
+      if (broadcastChannel) {
+        broadcastChannel.removeEventListener('message', handleBroadcastMessage)
+        broadcastChannel.close()
+        console.log('✅ [ChatList] BroadcastChannel 해제')
       }
       
       socketClient.disconnect()

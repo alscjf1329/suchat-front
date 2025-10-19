@@ -1,16 +1,17 @@
 /**
  * SuChat Service Worker - Custom Version
  * 푸시 알림 및 오프라인 캐싱 처리
- * Version: 2.5.0 (No Workbox)
+ * Version: 2.6.0 (No Workbox)
  * - 채팅방 ID를 tag로 설정하여 알림 그룹화
  * - 채팅방 입장 시 알림 자동 제거 지원
  * - 알림 클릭 시 모든 클라이언트에게 즉시 메시지 전송
  * - 푸시 클릭 시 무조건 소켓 재연결 보장
  * - API 요청과 파일 업로드는 캐시하지 않음
- * - 다른 채팅방 알림 클릭 시 정확한 채팅방으로 이동 ⭐ NEW
+ * - 다른 채팅방 알림 클릭 시 정확한 채팅방으로 이동
+ * - BroadcastChannel 사용하여 백그라운드 → 포그라운드 전환 시 알림 클릭 처리 ⭐ NEW
  */
 
-const CACHE_NAME = 'suchat-v2.5';
+const CACHE_NAME = 'suchat-v2.6';
 const OLD_CACHE_NAMES = [
   'suchat-v1',
   'suchat-v2',
@@ -18,6 +19,7 @@ const OLD_CACHE_NAMES = [
   'suchat-v2.2',
   'suchat-v2.3',
   'suchat-v2.4',
+  'suchat-v2.5',
   'workbox-precache-v2',
   'workbox-runtime',
   'workbox-precache',
@@ -33,7 +35,7 @@ const urlsToCache = [
 
 // Service Worker 설치
 self.addEventListener('install', (event) => {
-  console.log('[SW Custom] Install event - v2.5.0');
+  console.log('[SW Custom] Install event - v2.6.0');
   event.waitUntil(
     Promise.all([
       // 1. 모든 오래된 캐시 삭제 (workbox 포함)
@@ -207,45 +209,92 @@ self.addEventListener('push', (event) => {
 
 // 알림 클릭 처리
 self.addEventListener('notificationclick', (event) => {
+  console.log('[SW] ========== Notification Click Start ==========');
   console.log('[SW] Notification clicked:', event.notification.tag);
   console.log('[SW] Notification data:', event.notification.data);
   
   event.notification.close();
 
   const roomId = event.notification.data?.roomId;
-  const urlToOpen = roomId ? `/chat/${roomId}` : '/chat';
+  const relativePath = roomId ? `/chat/${roomId}` : '/chat';
+  const absoluteUrl = new URL(relativePath, self.location.origin).href;
+  
+  console.log('[SW] Room ID:', roomId);
+  console.log('[SW] Relative path:', relativePath);
+  console.log('[SW] Absolute URL:', absoluteUrl);
+  console.log('[SW] Origin:', self.location.origin);
+
+  // 알림 클릭 정보를 저장 (백그라운드 → 포그라운드 전환 시 사용)
+  const clickData = {
+    type: 'NOTIFICATION_CLICKED',
+    roomId: roomId,
+    urlToOpen: relativePath,
+    absoluteUrl: absoluteUrl,
+    timestamp: Date.now()
+  };
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
         console.log('[SW] Found clients:', clientList.length);
         
-        // 열린 창이 있으면 첫 번째 창에 메시지 전송 (페이지 이동 요청)
         if (clientList.length > 0) {
-          console.log('[SW] Sending navigation request to client:', urlToOpen);
+          // 각 클라이언트 URL 로깅
+          clientList.forEach((client, index) => {
+            console.log(`[SW] Client ${index} URL:`, client.url);
+          });
+        }
+        
+        // 열린 창이 있으면 처리
+        if (clientList.length > 0) {
+          console.log('[SW] ✅ Sending navigation request to all clients');
           
           // 모든 클라이언트에게 메시지 전송
-          clientList.forEach(client => {
-            client.postMessage({
-              type: 'NOTIFICATION_CLICKED',
-              roomId: roomId,
-              urlToOpen: urlToOpen,
-              timestamp: Date.now()
-            });
+          const messagePromises = clientList.map((client, index) => {
+            console.log(`[SW] 📨 Sending message to client ${index}`);
+            return client.postMessage(clickData);
           });
           
-          console.log('[SW] Focusing first window');
-          return clientList[0].focus();
+          console.log('[SW] 🎯 Focusing first window');
+          return Promise.all([
+            ...messagePromises,
+            clientList[0].focus().then(() => {
+              console.log('[SW] ✅ Window focused');
+              // iOS 대응: localStorage에 클릭 정보 저장 (백그라운드에서 메시지가 안 받아질 경우 대비)
+              return self.clients.matchAll({ type: 'window' }).then(clients => {
+                if (clients.length > 0) {
+                  // IndexedDB 대신 BroadcastChannel 사용 시도
+                  try {
+                    const channel = new BroadcastChannel('notification-click-channel');
+                    channel.postMessage(clickData);
+                    console.log('[SW] ✅ Sent via BroadcastChannel');
+                    channel.close();
+                  } catch (e) {
+                    console.log('[SW] BroadcastChannel not available, using postMessage only');
+                  }
+                }
+              });
+            }).catch(err => {
+              console.error('[SW] ❌ Focus failed:', err);
+            })
+          ]).then(() => {
+            console.log('[SW] ========== Notification Click End (Success) ==========');
+          });
         }
         
         // 열린 창이 없으면 새 창 열기
-        console.log('[SW] No clients, opening new window');
+        console.log('[SW] ⚠️  No clients found, opening new window');
         if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
+          return clients.openWindow(absoluteUrl).then(() => {
+            console.log('[SW] ✅ New window opened');
+            console.log('[SW] ========== Notification Click End (New Window) ==========');
+          });
         }
       })
       .catch((error) => {
-        console.error('[SW] Failed to handle notification click:', error);
+        console.error('[SW] ❌ Failed to handle notification click:', error);
+        console.error('[SW] Error stack:', error.stack);
+        console.log('[SW] ========== Notification Click End (Error) ==========');
       })
   );
 });

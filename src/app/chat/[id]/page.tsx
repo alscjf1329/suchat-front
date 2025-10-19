@@ -229,54 +229,68 @@ export default function ChatRoomPage() {
       handleBackground('pause')
     }
 
+    // 푸시 알림 클릭 처리 함수 (공통)
+    const handleNotificationClick = (data: any) => {
+      console.log('🔔 푸시 알림 클릭 처리 시작')
+      
+      const clickedRoomId = data.roomId
+      const urlToOpen = data.urlToOpen
+      
+      console.log('📍 클릭한 채팅방:', clickedRoomId)
+      console.log('📍 현재 채팅방:', chatId)
+      console.log('📍 이동할 URL:', urlToOpen)
+      
+      // 다른 채팅방의 알림을 클릭한 경우 해당 채팅방으로 이동
+      if (clickedRoomId && clickedRoomId !== chatId && urlToOpen) {
+        console.log('🔄 다른 채팅방으로 이동:', urlToOpen)
+        router.push(urlToOpen)
+        return
+      }
+      
+      // 푸시 클릭 = 무조건 포그라운드 상태!
+      // debounce 없이 즉시 처리
+      console.log('✅ 푸시 클릭 - 소켓 및 알림 즉시 처리')
+      
+      // 알림 제거 (클릭한 채팅방이든 아니든 모두 제거)
+      if (chatId) {
+        clearChatNotifications(chatId)
+          .then(() => console.log('✅ 알림 제거 완료'))
+          .catch((err) => console.error('❌ 알림 제거 실패:', err))
+      }
+      
+      // 소켓 상태 확인 및 재연결
+      const socket = socketClient.getSocket()
+      if (!socket || !socket.connected) {
+        console.log('🔄 소켓 끊김 - 즉시 재연결')
+        socketClient.connect()
+        
+        // 소켓 재연결 후 채팅방 재참여
+        if (currentUser && chatId) {
+          setTimeout(() => {
+            joinChatRoom()
+            console.log('✅ 채팅방 재참여 완료')
+          }, 500)
+        }
+      } else {
+        // 소켓이 연결되어 있으면 visibility만 업데이트
+        console.log('✅ 소켓 연결됨 - visibility 업데이트')
+        socketClient.setVisibility(true)
+      }
+    }
+
     // Service Worker 메시지 리스너 (푸시 알림 클릭 감지)
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data?.type === 'NOTIFICATION_CLICKED') {
-        console.log('🔔 [SW] 푸시 알림 클릭 감지 - 즉시 처리')
-        
-        const clickedRoomId = event.data.roomId
-        const urlToOpen = event.data.urlToOpen
-        
-        console.log('📍 클릭한 채팅방:', clickedRoomId)
-        console.log('📍 현재 채팅방:', chatId)
-        console.log('📍 이동할 URL:', urlToOpen)
-        
-        // 다른 채팅방의 알림을 클릭한 경우 해당 채팅방으로 이동
-        if (clickedRoomId && clickedRoomId !== chatId && urlToOpen) {
-          console.log('🔄 다른 채팅방으로 이동:', urlToOpen)
-          router.push(urlToOpen)
-          return
-        }
-        
-        // 푸시 클릭 = 무조건 포그라운드 상태!
-        // debounce 없이 즉시 처리
-        console.log('✅ 푸시 클릭 - 소켓 및 알림 즉시 처리')
-        
-        // 알림 제거 (클릭한 채팅방이든 아니든 모두 제거)
-        if (chatId) {
-          clearChatNotifications(chatId)
-            .then(() => console.log('✅ 알림 제거 완료'))
-            .catch((err) => console.error('❌ 알림 제거 실패:', err))
-        }
-        
-        // 소켓 상태 확인 및 재연결
-        const socket = socketClient.getSocket()
-        if (!socket || !socket.connected) {
-          console.log('🔄 소켓 끊김 - 즉시 재연결')
-          socketClient.connect()
-          
-          // 소켓 재연결 후 채팅방 재참여
-          if (currentUser && chatId) {
-            setTimeout(() => {
-              joinChatRoom()
-              console.log('✅ 채팅방 재참여 완료')
-            }, 500)
-          }
-        } else {
-          // 소켓이 연결되어 있으면 visibility만 업데이트
-          console.log('✅ 소켓 연결됨 - visibility 업데이트')
-          socketClient.setVisibility(true)
-        }
+        console.log('🔔 [postMessage] 푸시 알림 클릭 감지')
+        handleNotificationClick(event.data)
+      }
+    }
+
+    // BroadcastChannel 리스너 (백그라운드 → 포그라운드 전환 시)
+    const handleBroadcastMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICKED') {
+        console.log('🔔 [BroadcastChannel] 푸시 알림 클릭 감지')
+        handleNotificationClick(event.data)
       }
     }
 
@@ -307,6 +321,18 @@ export default function ChatRoomPage() {
     // Service Worker 메시지
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
+    }
+    
+    // BroadcastChannel (백그라운드 → 포그라운드 전환 시 알림 클릭 처리)
+    let broadcastChannel: BroadcastChannel | null = null
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        broadcastChannel = new BroadcastChannel('notification-click-channel')
+        broadcastChannel.addEventListener('message', handleBroadcastMessage)
+        console.log('✅ BroadcastChannel 등록 완료')
+      } catch (e) {
+        console.log('⚠️ BroadcastChannel 사용 불가')
+      }
     }
     
     console.log('✅ 이벤트 리스너 등록 완료')
@@ -349,6 +375,13 @@ export default function ChatRoomPage() {
       
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
+      }
+      
+      // BroadcastChannel 정리
+      if (broadcastChannel) {
+        broadcastChannel.removeEventListener('message', handleBroadcastMessage)
+        broadcastChannel.close()
+        console.log('✅ BroadcastChannel 해제')
       }
       
       // 타이머 정리
