@@ -61,13 +61,42 @@ export default function ChatListPage() {
       loadChatRooms()
     }
 
+    // Service Worker 메시지 리스너 (푸시 알림 클릭 감지)
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'NOTIFICATION_CLICKED') {
+        console.log('🔔 [SW] 푸시 알림 클릭 감지 - 채팅방으로 이동')
+        
+        const clickedRoomId = event.data.roomId
+        const urlToOpen = event.data.urlToOpen
+        
+        console.log('📍 클릭한 채팅방:', clickedRoomId)
+        console.log('📍 이동할 URL:', urlToOpen)
+        
+        // 해당 채팅방으로 이동
+        if (urlToOpen) {
+          console.log('🔄 채팅방으로 이동:', urlToOpen)
+          router.push(urlToOpen)
+        }
+      }
+    }
+
     window.addEventListener('focus', handleFocus)
+    
+    // Service Worker 메시지 리스너 등록
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
+    }
 
     return () => {
       window.removeEventListener('focus', handleFocus)
+      
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
+      }
+      
       socketClient.disconnect()
     }
-  }, [authLoading, currentUser])
+  }, [authLoading, currentUser, router])
 
   const loadFriends = async () => {
     if (!currentUser) return

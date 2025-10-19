@@ -235,6 +235,18 @@ export default function ChatRoomPage() {
         console.log('🔔 [SW] 푸시 알림 클릭 감지 - 즉시 처리')
         
         const clickedRoomId = event.data.roomId
+        const urlToOpen = event.data.urlToOpen
+        
+        console.log('📍 클릭한 채팅방:', clickedRoomId)
+        console.log('📍 현재 채팅방:', chatId)
+        console.log('📍 이동할 URL:', urlToOpen)
+        
+        // 다른 채팅방의 알림을 클릭한 경우 해당 채팅방으로 이동
+        if (clickedRoomId && clickedRoomId !== chatId && urlToOpen) {
+          console.log('🔄 다른 채팅방으로 이동:', urlToOpen)
+          router.push(urlToOpen)
+          return
+        }
         
         // 푸시 클릭 = 무조건 포그라운드 상태!
         // debounce 없이 즉시 처리

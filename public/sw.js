@@ -1,21 +1,23 @@
 /**
  * SuChat Service Worker - Custom Version
  * 푸시 알림 및 오프라인 캐싱 처리
- * Version: 2.4.0 (No Workbox)
+ * Version: 2.5.0 (No Workbox)
  * - 채팅방 ID를 tag로 설정하여 알림 그룹화
  * - 채팅방 입장 시 알림 자동 제거 지원
  * - 알림 클릭 시 모든 클라이언트에게 즉시 메시지 전송
  * - 푸시 클릭 시 무조건 소켓 재연결 보장
- * - API 요청과 파일 업로드는 캐시하지 않음 ⭐ NEW
+ * - API 요청과 파일 업로드는 캐시하지 않음
+ * - 다른 채팅방 알림 클릭 시 정확한 채팅방으로 이동 ⭐ NEW
  */
 
-const CACHE_NAME = 'suchat-v2.4';
+const CACHE_NAME = 'suchat-v2.5';
 const OLD_CACHE_NAMES = [
   'suchat-v1',
   'suchat-v2',
   'suchat-v2.1',
   'suchat-v2.2',
   'suchat-v2.3',
+  'suchat-v2.4',
   'workbox-precache-v2',
   'workbox-runtime',
   'workbox-precache',
@@ -31,7 +33,7 @@ const urlsToCache = [
 
 // Service Worker 설치
 self.addEventListener('install', (event) => {
-  console.log('[SW Custom] Install event - v2.4.0');
+  console.log('[SW Custom] Install event - v2.5.0');
   event.waitUntil(
     Promise.all([
       // 1. 모든 오래된 캐시 삭제 (workbox 포함)
@@ -218,29 +220,22 @@ self.addEventListener('notificationclick', (event) => {
       .then((clientList) => {
         console.log('[SW] Found clients:', clientList.length);
         
-        // 해당 채팅방 페이지 클라이언트 찾기
-        const targetClient = clientList.find(client => client.url.includes(urlToOpen));
-        
-        if (targetClient) {
-          // 해당 채팅방이 이미 열려있음 - 해당 탭에만 메시지 전송
-          console.log('[SW] Target client found, sending message');
-          targetClient.postMessage({
-            type: 'NOTIFICATION_CLICKED',
-            roomId: roomId,
-            timestamp: Date.now()
+        // 열린 창이 있으면 첫 번째 창에 메시지 전송 (페이지 이동 요청)
+        if (clientList.length > 0) {
+          console.log('[SW] Sending navigation request to client:', urlToOpen);
+          
+          // 모든 클라이언트에게 메시지 전송
+          clientList.forEach(client => {
+            client.postMessage({
+              type: 'NOTIFICATION_CLICKED',
+              roomId: roomId,
+              urlToOpen: urlToOpen,
+              timestamp: Date.now()
+            });
           });
           
-          console.log('[SW] Focusing target window');
-          return targetClient.focus();
-        }
-        
-        // 해당 채팅방이 안 열려있음
-        if (clientList.length > 0) {
-          // 첫 번째 탭으로 네비게이션 (새 페이지가 로드되면서 자동으로 소켓 연결됨)
-          console.log('[SW] No target client, navigating first client to:', urlToOpen);
-          return clientList[0].focus().then((client) => {
-            return client.navigate(urlToOpen);
-          });
+          console.log('[SW] Focusing first window');
+          return clientList[0].focus();
         }
         
         // 열린 창이 없으면 새 창 열기
