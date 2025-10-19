@@ -320,6 +320,17 @@ class SocketClient {
   offUserLeft(callback?: (data: any) => void) {
     this.socket?.off('user_left', callback)
   }
+
+  // 모든 채팅방 관련 이벤트 리스너 제거 (채팅방 전환 시 사용)
+  removeAllChatListeners() {
+    console.log('🧹 모든 채팅방 이벤트 리스너 제거')
+    this.socket?.removeAllListeners('new_message')
+    this.socket?.removeAllListeners('room_messages')
+    this.socket?.removeAllListeners('room_info')
+    this.socket?.removeAllListeners('unread_count')
+    this.socket?.removeAllListeners('user_joined')
+    this.socket?.removeAllListeners('user_left')
+  }
 }
 
 export const socketClient = new SocketClient()

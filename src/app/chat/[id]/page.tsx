@@ -230,7 +230,7 @@ export default function ChatRoomPage() {
     }
 
     // 푸시 알림 클릭 처리 함수 (공통)
-    const handleNotificationClick = (data: any) => {
+    const handleNotificationClick = async (data: any) => {
       console.log('🔔 푸시 알림 클릭 처리 시작')
       
       const clickedRoomId = data.roomId
@@ -243,6 +243,26 @@ export default function ChatRoomPage() {
       // 다른 채팅방의 알림을 클릭한 경우 해당 채팅방으로 이동
       if (clickedRoomId && clickedRoomId !== chatId && urlToOpen) {
         console.log('🔄 다른 채팅방으로 이동:', urlToOpen)
+        
+        // 현재 채팅방에서 명시적으로 나가기
+        if (currentUser && chatId) {
+          console.log('🚪 현재 채팅방에서 나가기:', chatId)
+          try {
+            // 모든 이벤트 리스너 먼저 제거
+            socketClient.removeAllChatListeners()
+            
+            // 채팅방 나가기
+            await socketClient.leaveRoom(chatId, currentUser.id)
+            console.log('✅ 채팅방 나가기 완료')
+          } catch (error) {
+            console.error('❌ 채팅방 나가기 실패:', error)
+          }
+        } else {
+          // 사용자 정보가 없어도 이벤트 리스너는 제거
+          socketClient.removeAllChatListeners()
+        }
+        
+        // 페이지 이동
         router.push(urlToOpen)
         return
       }
@@ -359,11 +379,18 @@ export default function ChatRoomPage() {
     console.log('⏰ 포그라운드 체크 인터벌 시작 (3초)')
 
     return () => {
-      // Socket 이벤트 리스너 제거
-      socketClient.offNewMessage()
-      socketClient.offRoomMessages()
-      socketClient.offRoomInfo()
-      socketClient.offUnreadCount()
+      console.log('🧹 [ChatRoom] Cleanup 시작 - chatId:', chatId)
+      
+      // 채팅방에서 나가기
+      if (currentUser && chatId) {
+        console.log('🚪 채팅방에서 나가기:', chatId)
+        socketClient.leaveRoom(chatId, currentUser.id)
+          .then(() => console.log('✅ 채팅방 나가기 완료'))
+          .catch(err => console.error('❌ 채팅방 나가기 실패:', err))
+      }
+      
+      // Socket 이벤트 리스너 제거 (모든 리스너 제거)
+      socketClient.removeAllChatListeners()
       
       // 이벤트 리스너 제거
       document.removeEventListener('visibilitychange', handleVisibilityChange)
@@ -392,6 +419,7 @@ export default function ChatRoomPage() {
       // 인터벌 정리
       clearInterval(intervalId)
       console.log('⏰ 포그라운드 체크 인터벌 중지')
+      console.log('✅ [ChatRoom] Cleanup 완료')
     }
   }, [authLoading, currentUser, chatId, router, joinChatRoom])
 
@@ -399,7 +427,15 @@ export default function ChatRoomPage() {
   const handleLeaveRoom = async () => {
     if (!currentUser || !chatId) return
     
+    console.log('🚪 채팅방 나가기 버튼 클릭')
+    
+    // 이벤트 리스너 제거
+    socketClient.removeAllChatListeners()
+    
+    // 채팅방 나가기
     await socketClient.leaveRoom(chatId, currentUser.id)
+    
+    // 채팅 목록으로 이동
     router.push('/chat')
   }
 
@@ -664,7 +700,7 @@ export default function ChatRoomPage() {
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"
-            onClick={() => router.back()}
+            onClick={handleLeaveRoom}
             className="p-2"
           >
             <span className="text-secondary text-lg">←</span>
