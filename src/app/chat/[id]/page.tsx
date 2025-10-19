@@ -244,23 +244,9 @@ export default function ChatRoomPage() {
       if (clickedRoomId && clickedRoomId !== chatId && urlToOpen) {
         console.log('🔄 다른 채팅방으로 이동:', urlToOpen)
         
-        // 현재 채팅방에서 명시적으로 나가기
-        if (currentUser && chatId) {
-          console.log('🚪 현재 채팅방에서 나가기:', chatId)
-          try {
-            // 모든 이벤트 리스너 먼저 제거
-            socketClient.removeAllChatListeners()
-            
-            // 채팅방 나가기
-            await socketClient.leaveRoom(chatId, currentUser.id)
-            console.log('✅ 채팅방 나가기 완료')
-          } catch (error) {
-            console.error('❌ 채팅방 나가기 실패:', error)
-          }
-        } else {
-          // 사용자 정보가 없어도 이벤트 리스너는 제거
-          socketClient.removeAllChatListeners()
-        }
+        // 소켓 이벤트 리스너만 제거 (채팅방에서 나가지는 않음!)
+        console.log('🧹 소켓 이벤트 리스너 제거 (채팅방은 유지)')
+        socketClient.removeAllChatListeners()
         
         // 페이지 이동
         router.push(urlToOpen)
@@ -381,15 +367,8 @@ export default function ChatRoomPage() {
     return () => {
       console.log('🧹 [ChatRoom] Cleanup 시작 - chatId:', chatId)
       
-      // 채팅방에서 나가기
-      if (currentUser && chatId) {
-        console.log('🚪 채팅방에서 나가기:', chatId)
-        socketClient.leaveRoom(chatId, currentUser.id)
-          .then(() => console.log('✅ 채팅방 나가기 완료'))
-          .catch(err => console.error('❌ 채팅방 나가기 실패:', err))
-      }
-      
-      // Socket 이벤트 리스너 제거 (모든 리스너 제거)
+      // Socket 이벤트 리스너만 제거 (채팅방에서 나가지는 않음!)
+      console.log('🧹 소켓 이벤트 리스너 제거 (채팅방은 유지)')
       socketClient.removeAllChatListeners()
       
       // 이벤트 리스너 제거
@@ -423,17 +402,12 @@ export default function ChatRoomPage() {
     }
   }, [authLoading, currentUser, chatId, router, joinChatRoom])
 
-  // 명시적으로 채팅방 나가기
-  const handleLeaveRoom = async () => {
-    if (!currentUser || !chatId) return
+  // 뒤로가기 버튼 (채팅 목록으로 이동)
+  const handleBackToList = () => {
+    console.log('🔙 채팅 목록으로 돌아가기')
     
-    console.log('🚪 채팅방 나가기 버튼 클릭')
-    
-    // 이벤트 리스너 제거
+    // 소켓 이벤트 리스너만 제거 (채팅방은 유지)
     socketClient.removeAllChatListeners()
-    
-    // 채팅방 나가기
-    await socketClient.leaveRoom(chatId, currentUser.id)
     
     // 채팅 목록으로 이동
     router.push('/chat')
@@ -700,7 +674,7 @@ export default function ChatRoomPage() {
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"
-            onClick={handleLeaveRoom}
+            onClick={handleBackToList}
             className="p-2"
           >
             <span className="text-secondary text-lg">←</span>
