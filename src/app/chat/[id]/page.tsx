@@ -26,6 +26,11 @@ export default function ChatRoomPage() {
   const [uploadingFile, setUploadingFile] = useState(false)
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
+  
+  // 무한 스크롤 상태
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [hasMoreMessages, setHasMoreMessages] = useState(true)
+  const [isNearTop, setIsNearTop] = useState(false)
 
   const showToast = (message: string, type: ToastType = 'info') => {
     setToast({ message, type })
@@ -546,23 +551,103 @@ export default function ChatRoomPage() {
     const threshold = 150 // 맨 아래로부터 150px 이내면 "맨 아래"로 간주
     const distance = container.scrollHeight - container.scrollTop - container.clientHeight
     
-    console.log('📍 스크롤 위치:', { 
-      distance, 
-      threshold, 
-      isAtBottom: distance < threshold,
-      scrollHeight: container.scrollHeight,
-      scrollTop: container.scrollTop,
-      clientHeight: container.clientHeight
-    })
-    
     return distance < threshold
+  }
+
+  // 사용자가 맨 위에 있는지 확인
+  const isAtTop = () => {
+    if (!messagesContainerRef.current) return false
+    
+    const container = messagesContainerRef.current
+    const threshold = 100 // 맨 위로부터 100px 이내면 "맨 위"로 간주
+    
+    return container.scrollTop < threshold
+  }
+
+  // 과거 메시지 로드
+  const loadMoreMessages = async () => {
+    if (!currentUser || !chatId || isLoadingMore || !hasMoreMessages || messages.length === 0) {
+      return
+    }
+
+    // 가장 오래된 메시지 (첫 번째 메시지)를 cursor로 사용
+    const oldestMessage = messages[0]
+    
+    console.log('📜 과거 메시지 로드 시작:', {
+      roomId: chatId,
+      cursor: {
+        timestamp: oldestMessage.timestamp,
+        id: oldestMessage.id
+      }
+    })
+
+    setIsLoadingMore(true)
+
+    try {
+      // 현재 스크롤 위치 저장 (메시지 로드 후 위치 유지용)
+      const container = messagesContainerRef.current
+      const previousScrollHeight = container?.scrollHeight || 0
+      const previousScrollTop = container?.scrollTop || 0
+
+      // 과거 메시지 로드
+      const result = await socketClient.loadMoreMessages(chatId, {
+        timestamp: oldestMessage.timestamp,
+        id: oldestMessage.id
+      }, 50)
+
+      console.log('📥 과거 메시지 로드 완료:', {
+        count: result.messages.length,
+        hasMore: result.hasMore
+      })
+
+      if (result.messages.length > 0) {
+        // 메시지를 최신순으로 정렬 (백엔드에서 DESC로 오므로 reverse)
+        const newMessages = result.messages.reverse()
+        
+        // 기존 메시지 앞에 추가
+        setMessages(prev => [...newMessages, ...prev])
+
+        // 스크롤 위치 유지 (jumping 방지)
+        setTimeout(() => {
+          if (container) {
+            const newScrollHeight = container.scrollHeight
+            const scrollHeightDiff = newScrollHeight - previousScrollHeight
+            container.scrollTop = previousScrollTop + scrollHeightDiff
+            console.log('📍 스크롤 위치 복원:', {
+              previousScrollTop,
+              scrollHeightDiff,
+              newScrollTop: container.scrollTop
+            })
+          }
+        }, 50)
+      }
+
+      setHasMoreMessages(result.hasMore)
+      
+      if (!result.hasMore) {
+        console.log('✅ 모든 메시지 로드 완료')
+      }
+    } catch (error) {
+      console.error('❌ 과거 메시지 로드 실패:', error)
+      showToast('메시지를 불러오는데 실패했습니다.', 'error')
+    } finally {
+      setIsLoadingMore(false)
+    }
   }
 
   // 스크롤 이벤트 핸들러
   const handleScroll = () => {
     const atBottom = isAtBottom()
-    console.log('🔄 스크롤 이벤트 - atBottom:', atBottom)
+    const atTop = isAtTop()
+    
     setShouldAutoScroll(atBottom)
+    setIsNearTop(atTop)
+
+    // 스크롤이 최상단 근처에 있고, 더 로드할 메시지가 있으면 자동 로드
+    if (atTop && !isLoadingMore && hasMoreMessages && messages.length > 0) {
+      console.log('🔝 스크롤 최상단 도달 - 과거 메시지 로드')
+      loadMoreMessages()
+    }
   }
 
   // 맨 아래로 스크롤
@@ -727,6 +812,25 @@ export default function ChatRoomPage() {
           </div>
         ) : (
           <div className="space-y-2">
+            {/* 과거 메시지 로딩 인디케이터 */}
+            {isLoadingMore && (
+              <div className="flex items-center justify-center py-4">
+                <div className="flex items-center space-x-2 px-4 py-2 bg-secondary rounded-full">
+                  <span className="text-lg animate-spin">⏳</span>
+                  <span className="text-sm text-secondary">과거 메시지 불러오는 중...</span>
+                </div>
+              </div>
+            )}
+            
+            {/* 더 이상 메시지 없음 표시 */}
+            {!hasMoreMessages && messages.length > 0 && (
+              <div className="flex items-center justify-center py-4">
+                <div className="px-4 py-2 bg-secondary rounded-full">
+                  <span className="text-xs text-secondary">대화의 시작입니다</span>
+                </div>
+              </div>
+            )}
+            
             {messages.map(renderMessage)}
             <div ref={messagesEndRef} />
           </div>

@@ -256,6 +256,37 @@ class SocketClient {
     })
   }
 
+  // 과거 메시지 로드 (무한 스크롤)
+  async loadMoreMessages(
+    roomId: string, 
+    cursor: { timestamp: Date; id: string }, 
+    limit = 50
+  ): Promise<{ messages: Message[]; hasMore: boolean }> {
+    await this.waitForConnection()
+    
+    console.log('📡 과거 메시지 로드 요청:', { roomId, cursor, limit })
+    
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('메시지 로드 시간 초과'))
+      }, 5000)
+
+      this.socket?.emit('load_more_messages', { roomId, cursor, limit }, (response: any) => {
+        clearTimeout(timeout)
+        console.log('📥 과거 메시지 로드 응답:', response)
+        
+        if (response) {
+          resolve({
+            messages: response.messages || [],
+            hasMore: response.hasMore || false
+          })
+        } else {
+          reject(new Error('메시지 로드 실패'))
+        }
+      })
+    })
+  }
+
   // 페이지 가시성 설정 (백그라운드/포그라운드 감지)
   setVisibility(visible: boolean): void {
     if (!this.socket || !this.socket.connected) {
