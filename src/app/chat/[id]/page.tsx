@@ -42,6 +42,7 @@ export default function ChatRoomPage() {
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [albumTab, setAlbumTab] = useState<'folders' | 'photos'>('photos') // 모바일 탭
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     setToast({ message, type })
@@ -657,6 +658,7 @@ export default function ChatRoomPage() {
                 onClick={() => {
                   setSelectedFolderId(folder.id)
                   loadAlbum(folder.id)
+                  setAlbumTab('photos') // 모바일에서 사진 탭으로 전환
                 }}
                 className="flex items-center space-x-2 flex-1 min-w-0"
               >
@@ -1310,42 +1312,71 @@ export default function ChatRoomPage() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* 헤더 */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
-                <div>
-                  <h2 className="text-xl font-bold text-primary">사진첩</h2>
-                  <p className="text-sm text-secondary mt-1">
-                    {selectedFolderId 
-                      ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || '폴더'} · ${albumPhotos?.length || 0}개`
-                      : `전체 ${albumPhotos?.length || 0}개의 사진/동영상`}
-                  </p>
+              <div className="flex flex-col border-b border-divider">
+                <div className="flex items-center justify-between px-6 py-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-primary">사진첩</h2>
+                    <p className="text-sm text-secondary mt-1">
+                      {selectedFolderId 
+                        ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || '폴더'} · ${albumPhotos?.length || 0}개`
+                        : `전체 ${albumPhotos?.length || 0}개의 사진/동영상`}
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <button
+                      onClick={handleFileClick}
+                      className="px-4 py-2 bg-[#0064FF] text-white rounded-lg hover:bg-[#0052CC] transition-colors flex items-center space-x-2"
+                    >
+                      <span>➕</span>
+                      <span className="hidden sm:inline">사진 추가</span>
+                    </button>
+                    <button
+                      onClick={() => setIsAlbumOpen(false)}
+                      className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                    >
+                      <span className="text-2xl text-secondary">✕</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="flex items-center space-x-2">
+                
+                {/* 모바일 탭 (768px 이하에서만 표시) */}
+                <div className="md:hidden flex border-t border-divider">
                   <button
-                    onClick={handleFileClick}
-                    className="px-4 py-2 bg-[#0064FF] text-white rounded-lg hover:bg-[#0052CC] transition-colors flex items-center space-x-2"
+                    onClick={() => setAlbumTab('photos')}
+                    className={`flex-1 py-3 text-center font-medium transition-colors ${
+                      albumTab === 'photos'
+                        ? 'text-[#0064FF] border-b-2 border-[#0064FF]'
+                        : 'text-secondary'
+                    }`}
                   >
-                    <span>➕</span>
-                    <span>사진 추가</span>
+                    📷 사진 보기
                   </button>
                   <button
-                    onClick={() => setIsAlbumOpen(false)}
-                    className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                    onClick={() => setAlbumTab('folders')}
+                    className={`flex-1 py-3 text-center font-medium transition-colors ${
+                      albumTab === 'folders'
+                        ? 'text-[#0064FF] border-b-2 border-[#0064FF]'
+                        : 'text-secondary'
+                    }`}
                   >
-                    <span className="text-2xl text-secondary">✕</span>
+                    📁 폴더 관리
                   </button>
                 </div>
               </div>
               
-              {/* 본문: 왼쪽 폴더 리스트 + 오른쪽 사진 그리드 */}
+              {/* 본문 */}
               <div className="flex-1 flex overflow-hidden">
-                {/* 왼쪽: 폴더 리스트 */}
-                <div className="w-64 border-r border-divider overflow-y-auto bg-secondary/30">
+                {/* 왼쪽: 폴더 리스트 (데스크톱 항상 표시, 모바일은 폴더 탭일 때만) */}
+                <div className={`w-full md:w-64 md:border-r border-divider overflow-y-auto bg-secondary/30 ${
+                  albumTab === 'folders' ? 'block' : 'hidden md:block'
+                }`}>
                   <div className="p-4 space-y-2">
                     {/* 전체 보기 */}
                     <button
                       onClick={() => {
                         setSelectedFolderId(null)
                         loadAlbum(null)
+                        setAlbumTab('photos') // 모바일에서 사진 탭으로 전환
                       }}
                       className={`w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 ${
                         selectedFolderId === null
@@ -1405,16 +1436,22 @@ export default function ChatRoomPage() {
                   </div>
                 </div>
 
-                {/* 오른쪽: 사진 그리드 */}
-                <div className="flex-1 overflow-y-auto p-6">
+                {/* 오른쪽: 사진 그리드 (데스크톱 항상 표시, 모바일은 사진 탭일 때만) */}
+                <div className={`flex-1 overflow-y-auto p-4 md:p-6 ${
+                  albumTab === 'photos' ? 'block' : 'hidden md:block'
+                }`}>
                 {!albumPhotos || albumPhotos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full">
                     <span className="text-6xl mb-4">📷</span>
-                    <p className="text-primary font-medium mb-2">사진첩이 비어있습니다</p>
-                    <p className="text-secondary text-sm">첫 번째 사진을 추가해보세요!</p>
+                    <p className="text-primary font-medium mb-2">
+                      {selectedFolderId ? '이 폴더가 비어있습니다' : '사진첩이 비어있습니다'}
+                    </p>
+                    <p className="text-secondary text-sm">
+                      {selectedFolderId ? '이 폴더에 첫 번째 사진을 추가해보세요!' : '첫 번째 사진을 추가해보세요!'}
+                    </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
                     {albumPhotos?.map((photo) => {
                       const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${photo.fileUrl}`
                       const thumbnailUrl = photo.thumbnailUrl 
