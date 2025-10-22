@@ -644,10 +644,12 @@ export default function ChatRoomPage() {
                     toggleFolder(folder.id)
                   }
                 }}
-                className="w-4 h-4 flex items-center justify-center flex-shrink-0"
+                className={`w-5 h-5 flex items-center justify-center flex-shrink-0 ${
+                  selectedFolderId === folder.id ? 'text-white' : 'text-primary'
+                }`}
               >
                 {hasChildren ? (
-                  <span className="text-xs">{isExpanded ? '▼' : '▶'}</span>
+                  <span className="text-sm font-bold">{isExpanded ? '▼' : '▶'}</span>
                 ) : (
                   <span className="text-xs opacity-0">·</span>
                 )}
@@ -666,7 +668,7 @@ export default function ChatRoomPage() {
                 <span className="font-medium truncate">{folder.name}</span>
               </button>
               
-              {/* 하위 폴더 추가 버튼 */}
+              {/* 하위 폴더 추가 버튼 (모바일: 항상 표시, 데스크톱: hover 시) */}
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -674,13 +676,17 @@ export default function ChatRoomPage() {
                   setIsCreatingFolder(true)
                   setExpandedFolders(prev => new Set([...prev, folder.id]))
                 }}
-                className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white/20 rounded flex-shrink-0"
+                className={`md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded flex-shrink-0 transition-opacity ${
+                  selectedFolderId === folder.id 
+                    ? 'bg-white/20 text-white' 
+                    : 'bg-secondary/50 text-primary hover:bg-secondary'
+                }`}
                 title="하위 폴더 추가"
               >
-                <span className="text-sm">➕</span>
+                <span className="text-base font-bold">+</span>
               </button>
               
-              {/* 폴더 삭제 버튼 */}
+              {/* 폴더 삭제 버튼 (모바일: 항상 표시, 데스크톱: hover 시) */}
               {folder.createdBy === currentUser?.id && (
                 <button
                   onClick={(e) => {
@@ -696,7 +702,7 @@ export default function ChatRoomPage() {
                         .catch(() => showToast('폴더 삭제 실패', 'error'))
                     }
                   }}
-                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-opacity flex-shrink-0"
+                  className="md:opacity-0 md:group-hover:opacity-100 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold transition-opacity flex-shrink-0"
                   title="폴더 삭제"
                 >
                   ✕
