@@ -89,7 +89,24 @@ export default function ChatRoomPage() {
 
     // 새 메시지 수신 시 자동 읽음 처리
     const handleNewMessageWithRead = (newMessage: SocketMessage) => {
-      setMessages(prev => [...prev, newMessage])
+      setMessages(prev => {
+        // 이미 낙관적으로 추가한 메시지인지 확인 (본인이 보낸 메시지)
+        const existingIndex = prev.findIndex(msg => 
+          msg.isPending && 
+          msg.userId === newMessage.userId && 
+          msg.content === newMessage.content &&
+          msg.type === newMessage.type
+        )
+        
+        // 낙관적 메시지가 있으면 교체, 없으면 추가
+        if (existingIndex !== -1) {
+          const updated = [...prev]
+          updated[existingIndex] = { ...newMessage, isPending: false }
+          return updated
+        }
+        
+        return [...prev, newMessage]
+      })
       
       // 자동 읽음 처리
       if (currentUser && chatId) {
@@ -424,20 +441,53 @@ export default function ChatRoomPage() {
   const handleSendMessage = useCallback(async () => {
     if (!message.trim() || !currentUser || !chatId) return
 
+    const messageContent = message.trim()
+    const tempId = `temp-${Date.now()}-${Math.random()}`
+    
+    // 즉시 메시지를 UI에 추가 (낙관적 업데이트)
+    const optimisticMessage: SocketMessage = {
+      id: tempId,
+      tempId,
+      roomId: chatId,
+      userId: currentUser.id,
+      content: messageContent,
+      type: 'text',
+      timestamp: new Date(),
+      isPending: true,  // 전송 중 표시
+    }
+    
+    setMessages(prev => [...prev, optimisticMessage])
+    setMessage('')
+    setShouldAutoScroll(true)
+
     try {
-      await socketClient.sendMessage({
+      // 실제 전송
+      const sentMessage = await socketClient.sendMessage({
         roomId: chatId,
         userId: currentUser.id,
-        content: message.trim(),
+        content: messageContent,
         type: 'text',
       })
 
-      setMessage('')
-      setShouldAutoScroll(true)
+      // 임시 메시지를 실제 메시지로 교체
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.tempId === tempId ? { ...sentMessage, isPending: false } : msg
+        )
+      )
     } catch (error) {
       console.error('❌ 메시지 전송 실패:', error)
+      
+      // 실패한 메시지 표시
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.tempId === tempId ? { ...msg, isPending: false, isFailed: true } : msg
+        )
+      )
+      
+      showToast('메시지 전송에 실패했습니다.', 'error')
     }
-  }, [message, currentUser, chatId])
+  }, [message, currentUser, chatId, showToast])
 
   // Enter 키로 메시지 전송
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
@@ -682,15 +732,17 @@ export default function ChatRoomPage() {
     
     return (
       <div
-        key={msg.id}
+        key={msg.tempId || msg.id}
         className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-4`}
       >
         <div
           className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
             isMyMessage
-              ? 'bg-[#0064FF] text-white rounded-br-md'
+              ? msg.isFailed
+                ? 'bg-red-500 text-white rounded-br-md opacity-70'
+                : 'bg-[#0064FF] text-white rounded-br-md'
               : 'bg-secondary text-primary rounded-bl-md'
-          }`}
+          } ${msg.isPending ? 'opacity-60' : ''}`}
         >
           {msg.type === 'text' ? (
             <p className="text-sm">{msg.content}</p>
@@ -719,10 +771,12 @@ export default function ChatRoomPage() {
           ) : (
             <p className="text-sm">{msg.content}</p>
           )}
-          <div className={`text-xs mt-1 ${
+          <div className={`text-xs mt-1 flex items-center gap-1 ${
             isMyMessage ? 'text-blue-100' : 'text-secondary'
           }`}>
-            {formatTime(msg.timestamp)}
+            <span>{formatTime(msg.timestamp)}</span>
+            {msg.isPending && <span className="animate-pulse">전송 중...</span>}
+            {msg.isFailed && <span className="text-red-300">전송 실패</span>}
           </div>
         </div>
       </div>

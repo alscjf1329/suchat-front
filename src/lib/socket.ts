@@ -27,6 +27,10 @@ export interface Message {
   fileName?: string
   fileSize?: number
   timestamp: Date
+  // 낙관적 업데이트용 상태
+  isPending?: boolean  // 전송 중
+  isFailed?: boolean   // 전송 실패
+  tempId?: string      // 임시 ID
 }
 
 class SocketClient {
