@@ -67,15 +67,18 @@ class ApiClient {
   ): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
     
-    const defaultOptions: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+    // 기본 헤더 + 사용자 지정 헤더 병합
+    const defaultHeaders: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    
+    const headers = {
+      ...defaultHeaders,
+      ...options.headers,
     };
 
     try {
-      const response = await fetch(url, { ...defaultOptions, ...options });
+      const response = await fetch(url, { ...options, headers });
       
       // 401 Unauthorized - 토큰 만료
       if (response.status === 401 && endpoint !== '/auth/signin' && endpoint !== '/auth/refresh') {
@@ -340,6 +343,32 @@ class ApiClient {
     }
 
     return { success: true, message: 'Logged out' };
+  }
+
+  // 범용 GET 요청
+  async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
+  // 범용 POST 요청
+  async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    const authHeaders = this.getAuthHeaders();
+    return this.request<T>(endpoint, {
+      method: 'POST',
+      headers: authHeaders,
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  // 범용 DELETE 요청
+  async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders(),
+    });
   }
 
   // 파일 업로드

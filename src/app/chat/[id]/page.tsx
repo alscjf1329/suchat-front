@@ -25,12 +25,22 @@ export default function ChatRoomPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [uploadingFile, setUploadingFile] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
   
   // 무한 스크롤 상태
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
+  
+  // 메뉴 상태
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isAlbumOpen, setIsAlbumOpen] = useState(false)
+  const [albumPhotos, setAlbumPhotos] = useState<any[]>([])
+  const [albumFolders, setAlbumFolders] = useState<any[]>([])
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     setToast({ message, type })
@@ -519,80 +529,161 @@ export default function ChatRoomPage() {
     fileInputRef.current?.click()
   }, [])
 
-  // 파일 선택 처리
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !currentUser || !chatId) return
-
-    console.log('📤 파일 선택됨:', {
-      name: file.name,
-      type: file.type,
-      size: file.size,
-    })
-
-    // 파일 타입 검증 (더 안전하게)
-    const fileExtension = file.name.toLowerCase().split('.').pop() || ''
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
-    const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
-    
-    const isImage = file.type.startsWith('image/') || imageExtensions.includes(fileExtension)
-    const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension)
-    
-    console.log('🔍 파일 타입 검증:', {
-      extension: fileExtension,
-      mimeType: file.type,
-      isImage,
-      isVideo
-    })
-    
-    if (!isImage && !isVideo) {
-      console.log('❌ 허용되지 않은 파일 타입')
-      showToast('이미지 또는 동영상 파일만 업로드할 수 있습니다.', 'error')
-      return
+  // 폴더 목록 불러오기
+  const loadFolders = async () => {
+    if (!chatId) return
+    try {
+      const response = await apiClient.get(`/chat/album/${chatId}/folders`)
+      const folders = Array.isArray(response) ? response : (response.data || [])
+      setAlbumFolders(folders)
+    } catch (error) {
+      console.error('❌ 폴더 로드 실패:', error)
+      setAlbumFolders([])
     }
+  }
 
-    // 파일 크기 검증 (100MB)
-    if (file.size > 100 * 1024 * 1024) {
-      showToast('파일 크기는 100MB를 초과할 수 없습니다.', 'error')
-      return
+  // 사진첩 불러오기
+  const loadAlbum = async (folderId?: string | null) => {
+    if (!chatId) return
+    try {
+      console.log('📷 사진첩 로드 시작:', chatId, 'folderId:', folderId)
+      
+      let response
+      if (folderId) {
+        // 특정 폴더의 사진만 조회
+        response = await apiClient.get(`/chat/album/${chatId}/folders/${folderId}`)
+      } else {
+        // 전체 사진 조회 (루트만 또는 전체)
+        response = await apiClient.get(`/chat/album/${chatId}`)
+      }
+      
+      console.log('📷 사진첩 응답:', response)
+      
+      // response가 배열이면 바로 사용, data 안에 있으면 data 사용
+      const photos = Array.isArray(response) ? response : (response.data || [])
+      
+      // folderId가 null이면 루트 폴더의 사진만 필터링
+      const filteredPhotos = folderId === null 
+        ? photos.filter((p: any) => !p.folderId)
+        : photos
+      
+      console.log('📷 최종 사진 배열:', filteredPhotos.length, '개')
+      
+      setAlbumPhotos(filteredPhotos)
+    } catch (error) {
+      console.error('❌ 사진첩 로드 실패:', error)
+      setAlbumPhotos([])
+      showToast('사진첩을 불러올 수 없습니다.', 'error')
+    }
+  }
+
+  // 폴더 생성
+  const createFolder = async () => {
+    if (!chatId || !newFolderName.trim()) return
+    
+    try {
+      console.log('📁 폴더 생성 요청:', {
+        url: `/chat/album/${chatId}/folders`,
+        name: newFolderName.trim()
+      })
+      
+      const response = await apiClient.post(`/chat/album/${chatId}/folders`, {
+        name: newFolderName.trim(),
+      })
+      
+      console.log('✅ 폴더 생성 응답:', response)
+      
+      showToast('폴더가 생성되었습니다', 'success')
+      setNewFolderName('')
+      setIsCreatingFolder(false)
+      await loadFolders()
+    } catch (error) {
+      console.error('❌ 폴더 생성 실패:', error)
+      showToast(`폴더 생성에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
+    }
+  }
+
+  // 파일 선택 처리 (사진첩에 업로드)
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !currentUser || !chatId) return
+
+    // 파일 배열로 변환
+    const fileArray = Array.from(files)
+    
+    console.log(`📤 사진첩에 ${fileArray.length}개 파일 업로드`)
+
+    // 파일 타입 검증 함수
+    const validateFile = (file: File) => {
+      const fileExtension = file.name.toLowerCase().split('.').pop() || ''
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
+      const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
+      
+      const isImage = file.type.startsWith('image/') || imageExtensions.includes(fileExtension)
+      const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension)
+      
+      if (!isImage && !isVideo) {
+        showToast(`${file.name}: 이미지 또는 동영상 파일만 업로드할 수 있습니다.`, 'error')
+        return null
+      }
+
+      if (file.size > 100 * 1024 * 1024) {
+        showToast(`${file.name}: 파일 크기는 100MB를 초과할 수 없습니다.`, 'error')
+        return null
+      }
+
+      return { isImage, isVideo }
     }
 
     try {
       setUploadingFile(true)
+      setUploadProgress({ current: 0, total: fileArray.length })
 
-      console.log('📤 파일 업로드 시작:', file.name, `(${(file.size / 1024 / 1024).toFixed(2)}MB)`)
+      // 모든 파일 순차 업로드
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i]
+        
+        setUploadProgress({ current: i + 1, total: fileArray.length })
+        console.log(`📤 [${i + 1}/${fileArray.length}] 사진첩 업로드 시작: ${file.name}`)
+        
+        const validation = validateFile(file)
+        if (!validation) continue
 
-      // 파일 업로드 (서버에서 처리 완료될 때까지 대기)
-      const result = await apiClient.uploadFile(file, currentUser.id, chatId)
-      
-      console.log('📦 파일 업로드 완료:', result)
-      
-      // 메시지 타입 결정
-      const messageType = isImage ? 'image' : 'video'
-      
-      // 파일 URL 가져오기 (상대 경로만 저장)
-      const fileUrl = result.fileUrl || result.data?.fileUrl
-      
-      if (!fileUrl) {
-        throw new Error('파일 URL을 받지 못했습니다.')
+        try {
+          // 파일 업로드
+          const result = await apiClient.uploadFile(file, currentUser.id, chatId)
+          
+          console.log(`📦 [${i + 1}/${fileArray.length}] 파일 업로드 완료:`, result)
+          
+          const messageType = validation.isImage ? 'image' : 'video'
+          const fileUrl = result.fileUrl || result.data?.fileUrl
+          const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
+          
+          if (!fileUrl) {
+            throw new Error('파일 URL을 받지 못했습니다.')
+          }
+
+          // 사진첩에 추가 (선택된 폴더 또는 루트)
+          const albumResponse = await apiClient.post(`/chat/album/${chatId}`, {
+            type: messageType,
+            fileUrl: fileUrl,
+            thumbnailUrl: thumbnailUrl,
+            fileName: file.name,
+            fileSize: file.size,
+            folderId: selectedFolderId,
+          })
+
+          console.log(`✅ [${i + 1}/${fileArray.length}] 사진첩에 추가 완료:`, albumResponse)
+        } catch (error) {
+          console.error(`❌ [${i + 1}/${fileArray.length}] 업로드 실패:`, error)
+          showToast(`${file.name} 업로드 실패`, 'error')
+        }
       }
 
-      console.log('🔗 파일 URL (상대 경로):', fileUrl)
-      console.log('📨 메시지 전송 시작...')
-
-      // 파일 메시지 전송 (상대 경로만 저장)
-      await socketClient.sendMessage({
-        roomId: chatId,
-        userId: currentUser.id,
-        content: file.name,
-        type: messageType,
-        fileUrl: fileUrl,
-        fileName: file.name,
-        fileSize: file.size,
-      })
-
-      console.log('✅ 메시지 전송 완료')
-      setShouldAutoScroll(true)
+      showToast(`${fileArray.length}개 파일을 사진첩에 추가했습니다`, 'success')
+      
+      // 사진첩 새로고침
+      await loadAlbum(selectedFolderId)
 
       // 파일 입력 초기화
       if (fileInputRef.current) {
@@ -603,6 +694,7 @@ export default function ChatRoomPage() {
       showToast(`파일 업로드에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     } finally {
       setUploadingFile(false)
+      setUploadProgress({ current: 0, total: 0 })
     }
   }
 
@@ -829,16 +921,108 @@ export default function ChatRoomPage() {
             </div>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 relative">
           <Button variant="ghost" className="p-2">
             <span className="text-secondary text-lg">📞</span>
           </Button>
           <Button variant="ghost" className="p-2">
             <span className="text-secondary text-lg">📹</span>
           </Button>
-          <Button variant="ghost" className="p-2">
-            <span className="text-secondary text-lg">⋯</span>
-          </Button>
+          <div className="relative">
+            <Button 
+              variant="ghost" 
+              className="p-2"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              <span className="text-secondary text-lg">⋯</span>
+            </Button>
+            
+            {/* 사이드 메뉴 */}
+            {isMenuOpen && (
+              <>
+                {/* 배경 오버레이 */}
+                <div 
+                  className="fixed inset-0 bg-black/50 z-40 animate-fadeIn"
+                  onClick={() => setIsMenuOpen(false)}
+                />
+                
+                {/* 오른쪽에서 슬라이드되는 메뉴 */}
+                <div className="fixed right-0 top-0 h-full w-full md:w-1/2 bg-primary z-50 shadow-2xl animate-slideInRight flex flex-col">
+                  {/* 메뉴 헤더 */}
+                  <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
+                    <h2 className="text-lg font-semibold text-primary">메뉴</h2>
+                    <button
+                      onClick={() => setIsMenuOpen(false)}
+                      className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                    >
+                      <span className="text-2xl text-secondary">✕</span>
+                    </button>
+                  </div>
+                  
+                  {/* 메뉴 리스트 */}
+                  <div className="flex-1 overflow-y-auto">
+                    <button
+                      onClick={() => {
+                        setIsAlbumOpen(true)
+                        setSelectedFolderId(null)
+                        loadFolders()
+                        loadAlbum(null)
+                      }}
+                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
+                    >
+                      <span className="text-3xl">📷</span>
+                      <div>
+                        <p className="text-primary font-medium">사진첩</p>
+                        <p className="text-xs text-secondary mt-1">채팅방 멤버들이 공유한 사진/동영상</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false)
+                        showToast('준비 중인 기능입니다.', 'info')
+                      }}
+                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
+                    >
+                      <span className="text-3xl">🔍</span>
+                      <div>
+                        <p className="text-primary font-medium">메시지 검색</p>
+                        <p className="text-xs text-secondary mt-1">대화 내용을 검색합니다</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false)
+                        showToast('준비 중인 기능입니다.', 'info')
+                      }}
+                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
+                    >
+                      <span className="text-3xl">⚙️</span>
+                      <div>
+                        <p className="text-primary font-medium">채팅방 설정</p>
+                        <p className="text-xs text-secondary mt-1">알림, 배경 등을 설정합니다</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
+                        setIsMenuOpen(false)
+                        showToast('준비 중인 기능입니다.', 'info')
+                      }}
+                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
+                    >
+                      <span className="text-3xl">👥</span>
+                      <div>
+                        <p className="text-primary font-medium">참여자 보기</p>
+                        <p className="text-xs text-secondary mt-1">채팅방 참여자 목록</p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
@@ -890,17 +1074,22 @@ export default function ChatRoomPage() {
         {uploadingFile && (
           <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center space-x-2">
             <span className="text-lg animate-spin">⏳</span>
-            <span className="text-sm text-blue-600 dark:text-blue-400">파일 업로드 중...</span>
+            <span className="text-sm text-blue-600 dark:text-blue-400">
+              {uploadProgress.total > 1 
+                ? `파일 업로드 중... (${uploadProgress.current}/${uploadProgress.total})`
+                : '파일 업로드 중...'}
+            </span>
           </div>
         )}
         <div className="flex items-center space-x-3">
-          {/* 파일 업로드 버튼 */}
+          {/* 파일 업로드 버튼 (multiple 지원) */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*,video/*,.heic,.heif,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg,.mp4,.webm,.mov,.m4v"
             onChange={handleFileChange}
             className="hidden"
+            multiple
           />
           <Button 
             variant="ghost" 
@@ -964,6 +1153,231 @@ export default function ChatRoomPage() {
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {/* 사진첩 모달 */}
+      {isAlbumOpen && (
+        <>
+          {/* 배경 오버레이 */}
+          <div 
+            className="fixed inset-0 bg-black/80 z-50 animate-fadeIn"
+            onClick={() => setIsAlbumOpen(false)}
+          />
+          
+          {/* 사진첩 콘텐츠 */}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div 
+              className="bg-primary rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-slideDown"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* 헤더 */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
+                <div>
+                  <h2 className="text-xl font-bold text-primary">사진첩</h2>
+                  <p className="text-sm text-secondary mt-1">
+                    {selectedFolderId 
+                      ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || '폴더'} · ${albumPhotos?.length || 0}개`
+                      : `전체 ${albumPhotos?.length || 0}개의 사진/동영상`}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={handleFileClick}
+                    className="px-4 py-2 bg-[#0064FF] text-white rounded-lg hover:bg-[#0052CC] transition-colors flex items-center space-x-2"
+                  >
+                    <span>➕</span>
+                    <span>사진 추가</span>
+                  </button>
+                  <button
+                    onClick={() => setIsAlbumOpen(false)}
+                    className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                  >
+                    <span className="text-2xl text-secondary">✕</span>
+                  </button>
+                </div>
+              </div>
+              
+              {/* 본문: 왼쪽 폴더 리스트 + 오른쪽 사진 그리드 */}
+              <div className="flex-1 flex overflow-hidden">
+                {/* 왼쪽: 폴더 리스트 */}
+                <div className="w-64 border-r border-divider overflow-y-auto bg-secondary/30">
+                  <div className="p-4 space-y-2">
+                    {/* 전체 보기 */}
+                    <button
+                      onClick={() => {
+                        setSelectedFolderId(null)
+                        loadAlbum(null)
+                      }}
+                      className={`w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 ${
+                        selectedFolderId === null
+                          ? 'bg-[#0064FF] text-white'
+                          : 'hover:bg-secondary text-primary'
+                      }`}
+                    >
+                      <span className="text-xl">📁</span>
+                      <span className="font-medium">전체 보기</span>
+                    </button>
+
+                    {/* 폴더 목록 */}
+                    {albumFolders.map((folder) => (
+                      <div key={folder.id} className="group relative">
+                        <button
+                          onClick={() => {
+                            setSelectedFolderId(folder.id)
+                            loadAlbum(folder.id)
+                          }}
+                          className={`w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 ${
+                            selectedFolderId === folder.id
+                              ? 'bg-[#0064FF] text-white'
+                              : 'hover:bg-secondary text-primary'
+                          }`}
+                        >
+                          <span className="text-xl">📂</span>
+                          <span className="font-medium flex-1">{folder.name}</span>
+                        </button>
+                        
+                        {/* 폴더 삭제 버튼 */}
+                        {folder.createdBy === currentUser?.id && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (confirm(`"${folder.name}" 폴더를 삭제하시겠습니까?\n(사진은 전체 보기로 이동됩니다)`)) {
+                                apiClient.delete(`/chat/album/${chatId}/folders/${folder.id}`)
+                                  .then(() => {
+                                    showToast('폴더가 삭제되었습니다', 'success')
+                                    setSelectedFolderId(null)
+                                    loadFolders()
+                                    loadAlbum(null)
+                                  })
+                                  .catch(() => showToast('폴더 삭제 실패', 'error'))
+                              }
+                            }}
+                            className="absolute top-1/2 -translate-y-1/2 right-2 opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-opacity"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* 폴더 생성 */}
+                    {isCreatingFolder ? (
+                      <div className="p-3 bg-primary rounded-lg border border-divider">
+                        <input
+                          type="text"
+                          value={newFolderName}
+                          onChange={(e) => setNewFolderName(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter') {
+                              createFolder()
+                            } else if (e.key === 'Escape') {
+                              setIsCreatingFolder(false)
+                              setNewFolderName('')
+                            }
+                          }}
+                          placeholder="폴더 이름"
+                          className="w-full px-3 py-2 bg-primary border border-divider rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0064FF] mb-2"
+                          autoFocus
+                        />
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={createFolder}
+                            className="flex-1 px-3 py-1.5 bg-[#0064FF] text-white rounded-lg text-sm hover:bg-[#0052CC]"
+                          >
+                            생성
+                          </button>
+                          <button
+                            onClick={() => {
+                              setIsCreatingFolder(false)
+                              setNewFolderName('')
+                            }}
+                            className="flex-1 px-3 py-1.5 bg-secondary text-primary rounded-lg text-sm hover:bg-divider"
+                          >
+                            취소
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setIsCreatingFolder(true)}
+                        className="w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 hover:bg-secondary text-secondary border-2 border-dashed border-divider"
+                      >
+                        <span className="text-xl">➕</span>
+                        <span className="font-medium">새 폴더</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 오른쪽: 사진 그리드 */}
+                <div className="flex-1 overflow-y-auto p-6">
+                {!albumPhotos || albumPhotos.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full">
+                    <span className="text-6xl mb-4">📷</span>
+                    <p className="text-primary font-medium mb-2">사진첩이 비어있습니다</p>
+                    <p className="text-secondary text-sm">첫 번째 사진을 추가해보세요!</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {albumPhotos?.map((photo) => {
+                      const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${photo.fileUrl}`
+                      const thumbnailUrl = photo.thumbnailUrl 
+                        ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${photo.thumbnailUrl}`
+                        : fileUrl
+                      
+                      return (
+                        <div
+                          key={photo.id}
+                          className="aspect-square bg-secondary rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group relative"
+                          onClick={() => window.open(fileUrl, '_blank')}
+                        >
+                          {photo.type === 'image' ? (
+                            <img
+                              src={thumbnailUrl}
+                              alt={photo.fileName}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <div className="relative w-full h-full">
+                              <video
+                                src={fileUrl}
+                                className="w-full h-full object-cover"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+                                <span className="text-4xl">▶️</span>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* 삭제 버튼 (본인이 업로드한 것만) */}
+                          {photo.uploadedBy === currentUser?.id && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (confirm('이 사진을 삭제하시겠습니까?')) {
+                                  apiClient.delete(`/chat/album/${photo.id}`)
+                                    .then(() => {
+                                      showToast('삭제되었습니다', 'success')
+                                      loadAlbum(selectedFolderId)
+                                    })
+                                    .catch(() => showToast('삭제 실패', 'error'))
+                                }
+                              }}
+                              className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   )
