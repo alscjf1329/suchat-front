@@ -18,6 +18,7 @@ export default function ChatRoomPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const messageInputRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<SocketMessage[]>([])
   const [roomInfo, setRoomInfo] = useState<ChatRoom | null>(null)
@@ -459,6 +460,17 @@ export default function ChatRoomPage() {
     setMessages(prev => [...prev, optimisticMessage])
     setMessage('')
     setShouldAutoScroll(true)
+    
+    // 키보드 유지: 메시지 전송 후 입력창에 다시 포커스 (여러 번 시도)
+    requestAnimationFrame(() => {
+      messageInputRef.current?.focus()
+    })
+    setTimeout(() => {
+      messageInputRef.current?.focus()
+    }, 50)
+    setTimeout(() => {
+      messageInputRef.current?.focus()
+    }, 100)
 
     try {
       // 실제 전송
@@ -490,10 +502,15 @@ export default function ChatRoomPage() {
   }, [message, currentUser, chatId, showToast])
 
   // Enter 키로 메시지 전송
-  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
+      e.stopPropagation()
       handleSendMessage()
+      // Enter로 전송 후에도 포커스 유지
+      setTimeout(() => {
+        e.currentTarget?.focus()
+      }, 10)
     }
   }, [handleSendMessage])
 
@@ -897,6 +914,7 @@ export default function ChatRoomPage() {
           </Button>
           <div className="flex-1 relative">
             <Input
+              ref={messageInputRef}
               type="text"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
@@ -913,17 +931,29 @@ export default function ChatRoomPage() {
               <span className="text-secondary text-lg">😊</span>
             </Button>
           </div>
-          <Button
-            onClick={handleSendMessage}
+          <button
+            type="button"
+            onMouseDown={(e: React.MouseEvent<HTMLButtonElement>) => {
+              // 마우스/터치 다운 시 blur 방지 (키보드 유지)
+              e.preventDefault()
+            }}
+            onTouchStart={(e: React.TouchEvent<HTMLButtonElement>) => {
+              // 모바일 터치 시 blur 방지
+              e.preventDefault()
+            }}
+            onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
+              e.preventDefault()
+              handleSendMessage()
+            }}
             disabled={!message.trim() || uploadingFile}
-            className={`p-3 rounded-full ${
+            className={`p-3 rounded-full transition-all ${
               message.trim() && !uploadingFile
-                ? 'bg-[#0064FF] text-white'
-                : 'bg-secondary text-secondary'
+                ? 'bg-[#0064FF] text-white hover:bg-[#0052CC] active:scale-95'
+                : 'bg-secondary text-secondary cursor-not-allowed'
             }`}
           >
             <span className="text-lg">↑</span>
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -938,3 +968,4 @@ export default function ChatRoomPage() {
     </div>
   )
 }
+

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { forwardRef } from 'react'
 
 interface InputProps {
   type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'date'
@@ -16,21 +16,23 @@ interface InputProps {
   maxLength?: number
 }
 
-export default function Input({
-  type = 'text',
-  value,
-  onChange,
-  onKeyPress,
-  placeholder,
-  label,
-  icon,
-  required = false,
-  disabled = false,
-  className = '',
-  error,
-  minLength,
-  maxLength
-}: InputProps) {
+const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
+  const {
+    type = 'text',
+    value,
+    onChange,
+    onKeyPress,
+    placeholder,
+    label,
+    icon,
+    required = false,
+    disabled = false,
+    className = '',
+    error,
+    minLength,
+    maxLength
+  } = props
+  
   // date input의 경우 아이콘을 오른쪽에, 다른 타입은 왼쪽에
   const isDateType = type === 'date'
   const paddingClasses = isDateType 
@@ -60,6 +62,7 @@ export default function Input({
         )}
         
         <input
+          ref={ref}
           type={type}
           value={value}
           onChange={onChange}
@@ -94,4 +97,8 @@ export default function Input({
       )}
     </div>
   )
-}
+})
+
+Input.displayName = 'Input'
+
+export default Input
