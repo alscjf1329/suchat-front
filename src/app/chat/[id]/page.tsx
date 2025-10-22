@@ -30,11 +30,10 @@ export default function ChatRoomPage() {
   // 무한 스크롤 상태
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
-  const [isNearTop, setIsNearTop] = useState(false)
 
-  const showToast = (message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
     setToast({ message, type })
-  }
+  }, [])
 
   // URL에서 채팅방 ID 가져오기
   const chatId = params?.id as string
@@ -422,7 +421,7 @@ export default function ChatRoomPage() {
   }
 
   // 메시지 전송
-  const handleSendMessage = async () => {
+  const handleSendMessage = useCallback(async () => {
     if (!message.trim() || !currentUser || !chatId) return
 
     try {
@@ -434,27 +433,24 @@ export default function ChatRoomPage() {
       })
 
       setMessage('')
-      
-      // 본인이 메시지를 보낼 때는 무조건 맨 아래로 스크롤
       setShouldAutoScroll(true)
-      setTimeout(() => scrollToBottom(), 100)
     } catch (error) {
       console.error('❌ 메시지 전송 실패:', error)
     }
-  }
+  }, [message, currentUser, chatId])
 
   // Enter 키로 메시지 전송
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSendMessage()
     }
-  }
+  }, [handleSendMessage])
 
   // 파일 선택 트리거
-  const handleFileClick = () => {
+  const handleFileClick = useCallback(() => {
     fileInputRef.current?.click()
-  }
+  }, [])
 
   // 파일 선택 처리
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -529,10 +525,7 @@ export default function ChatRoomPage() {
       })
 
       console.log('✅ 메시지 전송 완료')
-
-      // 본인이 파일을 보낼 때도 무조건 맨 아래로 스크롤
       setShouldAutoScroll(true)
-      setTimeout(() => scrollToBottom(), 100)
 
       // 파일 입력 초기화
       if (fileInputRef.current) {
@@ -568,7 +561,7 @@ export default function ChatRoomPage() {
   }
 
   // 과거 메시지 로드
-  const loadMoreMessages = async () => {
+  const loadMoreMessages = useCallback(async () => {
     // 초기 로딩 중이거나, 이미 로딩 중이거나, 더 이상 메시지가 없거나, 메시지가 없으면 중단
     if (!currentUser || !chatId || isLoading || isLoadingMore || !hasMoreMessages || messages.length === 0) {
       return
@@ -576,14 +569,6 @@ export default function ChatRoomPage() {
 
     // 가장 오래된 메시지 (첫 번째 메시지)를 cursor로 사용
     const oldestMessage = messages[0]
-    
-    console.log('📜 과거 메시지 로드 시작:', {
-      roomId: chatId,
-      cursor: {
-        timestamp: oldestMessage.timestamp,
-        id: oldestMessage.id
-      }
-    })
 
     setIsLoadingMore(true)
 
@@ -599,11 +584,6 @@ export default function ChatRoomPage() {
         id: oldestMessage.id
       }, 50)
 
-      console.log('📥 과거 메시지 로드 완료:', {
-        count: result.messages.length,
-        hasMore: result.hasMore
-      })
-
       if (result.messages.length > 0) {
         // 메시지를 최신순으로 정렬 (백엔드에서 DESC로 오므로 reverse)
         const newMessages = result.messages.reverse()
@@ -612,82 +592,70 @@ export default function ChatRoomPage() {
         setMessages(prev => [...newMessages, ...prev])
 
         // 스크롤 위치 유지 (jumping 방지)
-        setTimeout(() => {
+        requestAnimationFrame(() => {
           if (container) {
-            const newScrollHeight = container.scrollHeight
-            const scrollHeightDiff = newScrollHeight - previousScrollHeight
+            const scrollHeightDiff = container.scrollHeight - previousScrollHeight
             container.scrollTop = previousScrollTop + scrollHeightDiff
-            console.log('📍 스크롤 위치 복원:', {
-              previousScrollTop,
-              scrollHeightDiff,
-              newScrollTop: container.scrollTop
-            })
           }
-        }, 50)
+        })
       }
 
       setHasMoreMessages(result.hasMore)
-      
-      if (!result.hasMore) {
-        console.log('✅ 모든 메시지 로드 완료')
-      }
     } catch (error) {
       console.error('❌ 과거 메시지 로드 실패:', error)
       showToast('메시지를 불러오는데 실패했습니다.', 'error')
     } finally {
       setIsLoadingMore(false)
     }
-  }
+  }, [currentUser, chatId, isLoading, isLoadingMore, hasMoreMessages, messages, showToast])
 
   // 스크롤 이벤트 핸들러
-  const handleScroll = () => {
+  const handleScroll = useCallback(() => {
     const atBottom = isAtBottom()
     const atTop = isAtTop()
     
     setShouldAutoScroll(atBottom)
-    setIsNearTop(atTop)
 
     // 초기 로딩 중에는 무한 스크롤 비활성화
-    if (isLoading) {
-      return
-    }
+    if (isLoading) return
 
     // 스크롤이 최상단 근처에 있고, 더 로드할 메시지가 있으면 자동 로드
     if (atTop && !isLoadingMore && hasMoreMessages && messages.length > 0) {
-      console.log('🔝 스크롤 최상단 도달 - 과거 메시지 로드')
       loadMoreMessages()
     }
-  }
+  }, [isLoading, isLoadingMore, hasMoreMessages, messages.length, loadMoreMessages])
 
   // 맨 아래로 스크롤
-  const scrollToBottom = (smooth = true) => {
-    console.log('⬇️ scrollToBottom 호출 - smooth:', smooth)
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: smooth ? 'smooth' : 'auto' })
-    }
-  }
+  const scrollToBottom = useCallback((smooth = true) => {
+    requestAnimationFrame(() => {
+      if (messagesContainerRef.current) {
+        const container = messagesContainerRef.current
+        if (smooth) {
+          container.scrollTo({
+            top: container.scrollHeight,
+            behavior: 'smooth'
+          })
+        } else {
+          container.scrollTop = container.scrollHeight
+        }
+      }
+    })
+  }, [])
 
   // 메시지 목록 자동 스크롤
   useEffect(() => {
-    console.log('📨 메시지 변경 감지 - shouldAutoScroll:', shouldAutoScroll, 'messages:', messages.length)
-    if (shouldAutoScroll) {
-      // 새 메시지가 추가되면 자동 스크롤
-      setTimeout(() => {
-        scrollToBottom()
-      }, 50) // 약간의 딜레이를 줘서 DOM 업데이트 완료 대기
+    if (shouldAutoScroll && messages.length > 0) {
+      scrollToBottom()
     }
-  }, [messages])
+  }, [messages, shouldAutoScroll, scrollToBottom])
 
-  // 초기 로딩 완료 시 맨 아래로 스크롤
+  // 초기 로딩 완료 시 맨 아래로 스크롤 (한 번만)
   useEffect(() => {
     if (!isLoading && messages.length > 0) {
-      console.log('✅ 초기 로딩 완료 - 맨 아래로 스크롤')
       setShouldAutoScroll(true)
-      setTimeout(() => {
-        scrollToBottom(false)
-      }, 100)
+      scrollToBottom(false)
     }
-  }, [isLoading])
+  }, [isLoading, scrollToBottom])
 
   const formatTime = (date: Date) => {
     const d = new Date(date)
@@ -708,7 +676,7 @@ export default function ChatRoomPage() {
   }
 
   // 메시지 렌더링
-  const renderMessage = (msg: SocketMessage) => {
+  const renderMessage = useCallback((msg: SocketMessage) => {
     const isMyMessage = msg.userId === currentUser?.id
     const fileUrl = getFileUrl(msg.fileUrl)
     
@@ -759,7 +727,7 @@ export default function ChatRoomPage() {
         </div>
       </div>
     )
-  }
+  }, [currentUser?.id])
 
   return (
     <div className="h-screen w-full bg-primary flex flex-col">
