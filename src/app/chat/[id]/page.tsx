@@ -41,6 +41,7 @@ export default function ChatRoomPage() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
     setToast({ message, type })
@@ -578,17 +579,19 @@ export default function ChatRoomPage() {
   }
 
   // 폴더 생성
-  const createFolder = async () => {
+  const createFolder = async (parentId?: string) => {
     if (!chatId || !newFolderName.trim()) return
     
     try {
       console.log('📁 폴더 생성 요청:', {
         url: `/chat/album/${chatId}/folders`,
-        name: newFolderName.trim()
+        name: newFolderName.trim(),
+        parentId: parentId || 'root'
       })
       
       const response = await apiClient.post(`/chat/album/${chatId}/folders`, {
         name: newFolderName.trim(),
+        parentId: parentId,
       })
       
       console.log('✅ 폴더 생성 응답:', response)
@@ -601,6 +604,142 @@ export default function ChatRoomPage() {
       console.error('❌ 폴더 생성 실패:', error)
       showToast(`폴더 생성에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     }
+  }
+
+  // 폴더 펼침/접힘 토글
+  const toggleFolder = (folderId: string) => {
+    const newExpanded = new Set(expandedFolders)
+    if (newExpanded.has(folderId)) {
+      newExpanded.delete(folderId)
+    } else {
+      newExpanded.add(folderId)
+    }
+    setExpandedFolders(newExpanded)
+  }
+  
+  // 폴더 트리 렌더링 (재귀)
+  const renderFolderTree = (folders: any[], parentId: string | null = null, depth: number = 0): React.ReactNode => {
+    const childFolders = folders.filter(f => f.parentId === parentId)
+    
+    return childFolders.map((folder) => {
+      const hasChildren = folders.some(f => f.parentId === folder.id)
+      const isExpanded = expandedFolders.has(folder.id)
+      
+      return (
+        <div key={folder.id}>
+          <div className="group" style={{ paddingLeft: `${depth * 16}px` }}>
+            <div
+              className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors ${
+                selectedFolderId === folder.id
+                  ? 'bg-[#0064FF] text-white'
+                  : 'hover:bg-secondary text-primary'
+              }`}
+            >
+              {/* 펼침/접힘 토글 (왼쪽) */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (hasChildren) {
+                    toggleFolder(folder.id)
+                  }
+                }}
+                className="w-4 h-4 flex items-center justify-center flex-shrink-0"
+              >
+                {hasChildren ? (
+                  <span className="text-xs">{isExpanded ? '▼' : '▶'}</span>
+                ) : (
+                  <span className="text-xs opacity-0">·</span>
+                )}
+              </button>
+              
+              {/* 폴더 아이콘 및 이름 */}
+              <button
+                onClick={() => {
+                  setSelectedFolderId(folder.id)
+                  loadAlbum(folder.id)
+                }}
+                className="flex items-center space-x-2 flex-1 min-w-0"
+              >
+                <span className="text-xl flex-shrink-0">📂</span>
+                <span className="font-medium truncate">{folder.name}</span>
+              </button>
+              
+              {/* 하위 폴더 추가 버튼 */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setSelectedFolderId(folder.id)
+                  setIsCreatingFolder(true)
+                  setExpandedFolders(prev => new Set([...prev, folder.id]))
+                }}
+                className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-white/20 rounded flex-shrink-0"
+                title="하위 폴더 추가"
+              >
+                <span className="text-sm">➕</span>
+              </button>
+              
+              {/* 폴더 삭제 버튼 */}
+              {folder.createdBy === currentUser?.id && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    if (confirm(`"${folder.name}" 폴더를 삭제하시겠습니까?\n(하위 폴더와 사진도 함께 삭제됩니다)`)) {
+                      apiClient.delete(`/chat/album/${chatId}/folders/${folder.id}`)
+                        .then(() => {
+                          showToast('폴더가 삭제되었습니다', 'success')
+                          setSelectedFolderId(null)
+                          loadFolders()
+                          loadAlbum(null)
+                        })
+                        .catch(() => showToast('폴더 삭제 실패', 'error'))
+                    }
+                  }}
+                  className="opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-opacity flex-shrink-0"
+                  title="폴더 삭제"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* 하위 폴더 생성 UI */}
+          {isCreatingFolder && selectedFolderId === folder.id && (
+            <div className="mt-1 mb-1" style={{ paddingLeft: `${(depth + 1) * 16 + 20}px` }}>
+              <input
+                type="text"
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && newFolderName.trim()) {
+                    e.preventDefault()
+                    createFolder(folder.id)
+                  } else if (e.key === 'Escape') {
+                    setIsCreatingFolder(false)
+                    setNewFolderName('')
+                  }
+                }}
+                onBlur={() => {
+                  // 포커스 벗어날 때 입력된 내용이 있으면 저장
+                  if (newFolderName.trim()) {
+                    createFolder(folder.id)
+                  } else {
+                    setIsCreatingFolder(false)
+                    setNewFolderName('')
+                  }
+                }}
+                placeholder="하위 폴더 이름 입력"
+                className="w-full px-3 py-2 bg-primary border-2 border-[#0064FF] rounded-lg text-sm focus:outline-none text-primary"
+                autoFocus
+              />
+            </div>
+          )}
+          
+          {/* 하위 폴더들 렌더링 (재귀) - 펼쳐져 있을 때만 */}
+          {isExpanded && renderFolderTree(folders, folder.id, depth + 1)}
+        </div>
+      )
+    })
   }
 
   // 파일 선택 처리 (사진첩에 업로드)
@@ -1218,88 +1357,45 @@ export default function ChatRoomPage() {
                       <span className="font-medium">전체 보기</span>
                     </button>
 
-                    {/* 폴더 목록 */}
-                    {albumFolders.map((folder) => (
-                      <div key={folder.id} className="group relative">
-                        <button
-                          onClick={() => {
-                            setSelectedFolderId(folder.id)
-                            loadAlbum(folder.id)
-                          }}
-                          className={`w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 ${
-                            selectedFolderId === folder.id
-                              ? 'bg-[#0064FF] text-white'
-                              : 'hover:bg-secondary text-primary'
-                          }`}
-                        >
-                          <span className="text-xl">📂</span>
-                          <span className="font-medium flex-1">{folder.name}</span>
-                        </button>
-                        
-                        {/* 폴더 삭제 버튼 */}
-                        {folder.createdBy === currentUser?.id && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (confirm(`"${folder.name}" 폴더를 삭제하시겠습니까?\n(사진은 전체 보기로 이동됩니다)`)) {
-                                apiClient.delete(`/chat/album/${chatId}/folders/${folder.id}`)
-                                  .then(() => {
-                                    showToast('폴더가 삭제되었습니다', 'success')
-                                    setSelectedFolderId(null)
-                                    loadFolders()
-                                    loadAlbum(null)
-                                  })
-                                  .catch(() => showToast('폴더 삭제 실패', 'error'))
-                              }
-                            }}
-                            className="absolute top-1/2 -translate-y-1/2 right-2 opacity-0 group-hover:opacity-100 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs transition-opacity"
-                          >
-                            ✕
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                    {/* 폴더 트리 */}
+                    {renderFolderTree(albumFolders, null, 0)}
 
-                    {/* 폴더 생성 */}
-                    {isCreatingFolder ? (
-                      <div className="p-3 bg-primary rounded-lg border border-divider">
+                    {/* 루트 레벨 폴더 생성 */}
+                    {isCreatingFolder && selectedFolderId === null ? (
+                      <div className="px-3 py-2">
                         <input
                           type="text"
                           value={newFolderName}
                           onChange={(e) => setNewFolderName(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter') {
-                              createFolder()
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && newFolderName.trim()) {
+                              e.preventDefault()
+                              createFolder(undefined)
                             } else if (e.key === 'Escape') {
                               setIsCreatingFolder(false)
                               setNewFolderName('')
                             }
                           }}
-                          placeholder="폴더 이름"
-                          className="w-full px-3 py-2 bg-primary border border-divider rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#0064FF] mb-2"
-                          autoFocus
-                        />
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={createFolder}
-                            className="flex-1 px-3 py-1.5 bg-[#0064FF] text-white rounded-lg text-sm hover:bg-[#0052CC]"
-                          >
-                            생성
-                          </button>
-                          <button
-                            onClick={() => {
+                          onBlur={() => {
+                            // 포커스 벗어날 때 입력된 내용이 있으면 저장
+                            if (newFolderName.trim()) {
+                              createFolder(undefined)
+                            } else {
                               setIsCreatingFolder(false)
                               setNewFolderName('')
-                            }}
-                            className="flex-1 px-3 py-1.5 bg-secondary text-primary rounded-lg text-sm hover:bg-divider"
-                          >
-                            취소
-                          </button>
-                        </div>
+                            }
+                          }}
+                          placeholder="폴더 이름 입력"
+                          className="w-full px-3 py-2 bg-primary border-2 border-[#0064FF] rounded-lg text-sm focus:outline-none text-primary"
+                          autoFocus
+                        />
                       </div>
                     ) : (
                       <button
-                        onClick={() => setIsCreatingFolder(true)}
+                        onClick={() => {
+                          setSelectedFolderId(null)
+                          setIsCreatingFolder(true)
+                        }}
                         className="w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 hover:bg-secondary text-secondary border-2 border-dashed border-divider"
                       >
                         <span className="text-xl">➕</span>
