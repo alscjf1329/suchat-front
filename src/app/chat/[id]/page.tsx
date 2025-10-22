@@ -107,6 +107,9 @@ export default function ChatRoomPage() {
       setMessages(orderedMessages)
       setIsLoading(false)
       
+      // 초기 메시지가 50개(limit)면 더 있을 가능성 있음
+      setHasMoreMessages(orderedMessages.length >= 50)
+      
       // 채팅방 입장 시 마지막 메시지를 읽음 처리 ⭐
       if (orderedMessages.length > 0 && currentUser && chatId) {
         const lastMessage = orderedMessages[orderedMessages.length - 1]
@@ -566,7 +569,8 @@ export default function ChatRoomPage() {
 
   // 과거 메시지 로드
   const loadMoreMessages = async () => {
-    if (!currentUser || !chatId || isLoadingMore || !hasMoreMessages || messages.length === 0) {
+    // 초기 로딩 중이거나, 이미 로딩 중이거나, 더 이상 메시지가 없거나, 메시지가 없으면 중단
+    if (!currentUser || !chatId || isLoading || isLoadingMore || !hasMoreMessages || messages.length === 0) {
       return
     }
 
@@ -642,6 +646,11 @@ export default function ChatRoomPage() {
     
     setShouldAutoScroll(atBottom)
     setIsNearTop(atTop)
+
+    // 초기 로딩 중에는 무한 스크롤 비활성화
+    if (isLoading) {
+      return
+    }
 
     // 스크롤이 최상단 근처에 있고, 더 로드할 메시지가 있으면 자동 로드
     if (atTop && !isLoadingMore && hasMoreMessages && messages.length > 0) {
