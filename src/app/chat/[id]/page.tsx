@@ -29,6 +29,8 @@ export default function ChatRoomPage() {
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
+  const [isPasting, setIsPasting] = useState(false)
+  const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
   // 무한 스크롤 상태
   const [isLoadingMore, setIsLoadingMore] = useState(false)
@@ -362,6 +364,13 @@ export default function ChatRoomPage() {
     document.addEventListener('resume', handleResume)
     document.addEventListener('pause', handlePause)
     
+    // 클립보드 붙여넣기 이벤트 (이미지 지원) - capture 모드로 중복 방지
+    // 메시지 입력창에만 적용하여 중복 방지
+    const messageInput = messageInputRef.current
+    if (messageInput) {
+      messageInput.addEventListener('paste', handleClipboardPaste, { capture: true })
+    }
+    
     // Service Worker 메시지
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
@@ -417,6 +426,12 @@ export default function ChatRoomPage() {
       document.removeEventListener('resume', handleResume)
       document.removeEventListener('pause', handlePause)
       
+      // 클립보드 붙여넣기 이벤트 제거 (메시지 입력창에서)
+      const messageInput = messageInputRef.current
+      if (messageInput) {
+        messageInput.removeEventListener('paste', handleClipboardPaste, { capture: true })
+      }
+      
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
       }
@@ -431,6 +446,12 @@ export default function ChatRoomPage() {
       // 타이머 정리
       if (foregroundTimer) {
         clearTimeout(foregroundTimer)
+      }
+      
+      // 클립보드 디바운스 타이머 정리
+      if (pasteTimeoutRef.current) {
+        clearTimeout(pasteTimeoutRef.current)
+        pasteTimeoutRef.current = null
       }
       
       // 인터벌 정리
@@ -773,17 +794,107 @@ export default function ChatRoomPage() {
     return { isImage, isVideo }
   }
 
-  // 채팅 메시지로 파일 전송 (여러 장 묶음 지원)
-  const handleChatFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || files.length === 0 || !currentUser || !chatId) return
+  // 클립보드에서 이미지 붙여넣기 처리
+  const handleClipboardPaste = async (e: ClipboardEvent) => {
+    // 디바운스: 짧은 시간 내 중복 실행 방지
+    if (pasteTimeoutRef.current) {
+      console.log('🚫 클립보드 붙여넣기 디바운스 차단')
+      return
+    }
 
-    const fileArray = Array.from(files)
-    console.log(`💬 채팅 메시지로 ${fileArray.length}개 파일 전송`)
+    // 중복 실행 방지
+    if (!currentUser || !chatId || uploadingFile || isPasting) {
+      console.log('🚫 클립보드 붙여넣기 차단:', { 
+        currentUser: !!currentUser, 
+        chatId: !!chatId, 
+        uploadingFile, 
+        isPasting 
+      })
+      return
+    }
+
+    // 디바운스 타이머 설정 (500ms)
+    pasteTimeoutRef.current = setTimeout(() => {
+      pasteTimeoutRef.current = null
+    }, 500)
+
+    const items = e.clipboardData?.items
+    if (!items) {
+      console.log('📋 클립보드에 아이템 없음')
+      return
+    }
+
+    const imageItems: DataTransferItem[] = []
+    
+    // 클립보드에서 이미지 아이템 찾기
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      if (item.type.startsWith('image/')) {
+        imageItems.push(item)
+        console.log(`📷 클립보드 이미지 발견: ${item.type}`)
+      }
+    }
+
+    if (imageItems.length === 0) {
+      console.log('📋 클립보드에 이미지 없음')
+      return
+    }
+
+    // 이벤트 전파 중단
+    e.preventDefault()
+    e.stopPropagation()
+    e.stopImmediatePropagation()
+
+    console.log(`📋 클립보드 붙여넣기 시작: ${imageItems.length}개 이미지`)
+    setIsPasting(true)
+
+    try {
+      const files: File[] = []
+      
+      // 클립보드 이미지를 File 객체로 변환
+      for (const item of imageItems) {
+        const file = item.getAsFile()
+        if (file) {
+          // 파일명 생성 (클립보드 이미지는 이름이 없으므로)
+          const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+          const extension = file.type.split('/')[1] || 'png'
+          const fileName = `clipboard-${timestamp}.${extension}`
+          
+          // 새로운 File 객체 생성 (이름 포함)
+          const namedFile = new File([file], fileName, { type: file.type })
+          files.push(namedFile)
+          console.log(`📁 파일 생성: ${fileName} (${file.size} bytes)`)
+        }
+      }
+
+      if (files.length === 0) {
+        console.log('❌ 변환된 파일 없음')
+        return
+      }
+
+      console.log(`📋 클립보드에서 ${files.length}개 이미지 붙여넣기`)
+
+      // 파일 업로드 처리 (기존 로직 재사용)
+      await handleChatFileUploadFromFiles(files)
+
+    } catch (error) {
+      console.error('❌ 클립보드 붙여넣기 실패:', error)
+      showToast('클립보드 이미지 붙여넣기에 실패했습니다', 'error')
+    } finally {
+      setIsPasting(false)
+      console.log('✅ 클립보드 붙여넣기 완료')
+    }
+  }
+
+  // 파일 배열로부터 채팅 메시지 전송 (공통 로직)
+  const handleChatFileUploadFromFiles = async (files: File[]) => {
+    if (!currentUser || !chatId) return
+
+    console.log(`💬 채팅 메시지로 ${files.length}개 파일 전송`)
 
     try {
       setUploadingFile(true)
-      setUploadProgress({ current: 0, total: fileArray.length })
+      setUploadProgress({ current: 0, total: files.length })
 
       const uploadedFiles: Array<{
         fileUrl: string;
@@ -793,11 +904,11 @@ export default function ChatRoomPage() {
       }> = []
 
       // 모든 파일 순차 업로드
-      for (let i = 0; i < fileArray.length; i++) {
-        const file = fileArray[i]
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i]
         
-        setUploadProgress({ current: i + 1, total: fileArray.length })
-        console.log(`📤 [${i + 1}/${fileArray.length}] 채팅 메시지 업로드 시작: ${file.name}`)
+        setUploadProgress({ current: i + 1, total: files.length })
+        console.log(`📤 [${i + 1}/${files.length}] 채팅 메시지 업로드 시작: ${file.name}`)
         
         const validation = validateFile(file)
         if (!validation) continue
@@ -806,7 +917,7 @@ export default function ChatRoomPage() {
           // 파일 업로드
           const result = await apiClient.uploadFile(file, currentUser.id, chatId)
           
-          console.log(`📦 [${i + 1}/${fileArray.length}] 파일 업로드 완료:`, result)
+          console.log(`📦 [${i + 1}/${files.length}] 파일 업로드 완료:`, result)
           
           const fileUrl = result.fileUrl || result.data?.fileUrl
           const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
@@ -823,9 +934,9 @@ export default function ChatRoomPage() {
             thumbnailUrl: thumbnailUrl,
           })
 
-          console.log(`✅ [${i + 1}/${fileArray.length}] 파일 업로드 완료`)
+          console.log(`✅ [${i + 1}/${files.length}] 파일 업로드 완료`)
         } catch (error) {
-          console.error(`❌ [${i + 1}/${fileArray.length}] 파일 업로드 실패:`, error)
+          console.error(`❌ [${i + 1}/${files.length}] 파일 업로드 실패:`, error)
           showToast(`${file.name} 업로드 실패`, 'error')
         }
       }
@@ -888,17 +999,28 @@ export default function ChatRoomPage() {
           showToast('메시지 전송에 실패했습니다', 'error')
         }
       }
-
-      // 파일 입력 초기화
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
-      }
     } catch (error) {
       console.error('❌ 채팅 메시지 전송 실패:', error)
       showToast(`파일 전송에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     } finally {
       setUploadingFile(false)
       setUploadProgress({ current: 0, total: 0 })
+    }
+  }
+
+  // 채팅 메시지로 파일 전송 (여러 장 묶음 지원)
+  const handleChatFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !currentUser || !chatId) return
+
+    const fileArray = Array.from(files)
+    
+    // 공통 파일 업로드 함수 사용
+    await handleChatFileUploadFromFiles(fileArray)
+
+    // 파일 입력 초기화
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
     }
   }
 
@@ -1380,13 +1502,15 @@ export default function ChatRoomPage() {
 
       {/* 메시지 입력 */}
       <div className="bg-primary border-t border-divider px-4 py-3">
-        {uploadingFile && (
+        {(uploadingFile || isPasting) && (
           <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center space-x-2">
             <span className="text-lg animate-spin">⏳</span>
             <span className="text-sm text-blue-600 dark:text-blue-400">
-              {uploadProgress.total > 1 
-                ? `파일 업로드 중... (${uploadProgress.current}/${uploadProgress.total})`
-                : '파일 업로드 중...'}
+              {isPasting 
+                ? '클립보드 이미지 붙여넣기 중...'
+                : uploadProgress.total > 1 
+                  ? `파일 업로드 중... (${uploadProgress.current}/${uploadProgress.total})`
+                  : '파일 업로드 중...'}
             </span>
           </div>
         )}
@@ -1404,10 +1528,10 @@ export default function ChatRoomPage() {
             variant="ghost" 
             className="p-2"
             onClick={handleFileClick}
-            disabled={uploadingFile}
+            disabled={uploadingFile || isPasting}
           >
-            <span className={`text-lg ${uploadingFile ? 'text-gray-400' : 'text-secondary'}`}>
-              {uploadingFile ? '⏳' : '📎'}
+            <span className={`text-lg ${(uploadingFile || isPasting) ? 'text-gray-400' : 'text-secondary'}`}>
+              {(uploadingFile || isPasting) ? '⏳' : '📎'}
             </span>
           </Button>
           <div className="flex-1 relative">
@@ -1417,14 +1541,14 @@ export default function ChatRoomPage() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={uploadingFile ? '파일 업로드 중...' : t('chat.messagePlaceholder')}
+              placeholder={(uploadingFile || isPasting) ? '파일 처리 중...' : t('chat.messagePlaceholder')}
               className="pr-12"
-              disabled={uploadingFile}
+              disabled={uploadingFile || isPasting}
             />
             <Button
               variant="ghost"
               className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1"
-              disabled={uploadingFile}
+              disabled={uploadingFile || isPasting}
             >
               <span className="text-secondary text-lg">😊</span>
             </Button>
@@ -1443,9 +1567,9 @@ export default function ChatRoomPage() {
               e.preventDefault()
               handleSendMessage()
             }}
-            disabled={!message.trim() || uploadingFile}
+            disabled={!message.trim() || uploadingFile || isPasting}
             className={`p-3 rounded-full transition-all ${
-              message.trim() && !uploadingFile
+              message.trim() && !uploadingFile && !isPasting
                 ? 'bg-[#0064FF] text-white hover:bg-[#0052CC] active:scale-95'
                 : 'bg-secondary text-secondary cursor-not-allowed'
             }`}
@@ -1692,4 +1816,5 @@ export default function ChatRoomPage() {
     </div>
   )
 }
+
 
