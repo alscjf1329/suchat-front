@@ -32,6 +32,10 @@ export default function ChatRoomPage() {
   const [isPasting, setIsPasting] = useState(false)
   const pasteTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   
+  // 미리보기 상태
+  const [previewFiles, setPreviewFiles] = useState<File[]>([])
+  const [isPreviewMode, setIsPreviewMode] = useState(false)
+  
   // 무한 스크롤 상태
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
@@ -472,68 +476,193 @@ export default function ChatRoomPage() {
     router.push('/chat')
   }
 
-  // 메시지 전송
+  // 메시지 전송 (텍스트 + 파일 통합)
   const handleSendMessage = useCallback(async () => {
-    if (!message.trim() || !currentUser || !chatId) return
+    // 텍스트와 파일이 모두 없으면 전송하지 않음
+    if (!message.trim() && previewFiles.length === 0) return
+    if (!currentUser || !chatId) return
 
     const messageContent = message.trim()
     const tempId = `temp-${Date.now()}-${Math.random()}`
     
-    // 즉시 메시지를 UI에 추가 (낙관적 업데이트)
-    const optimisticMessage: SocketMessage = {
-      id: tempId,
-      tempId,
-      roomId: chatId,
-      userId: currentUser.id,
-      content: messageContent,
-      type: 'text',
-      timestamp: new Date(),
-      isPending: true,  // 전송 중 표시
-    }
-    
-    setMessages(prev => [...prev, optimisticMessage])
-    setMessage('')
-    setShouldAutoScroll(true)
-    
-    // 키보드 유지: 메시지 전송 후 입력창에 다시 포커스 (여러 번 시도)
-    requestAnimationFrame(() => {
-      messageInputRef.current?.focus()
-    })
-    setTimeout(() => {
-      messageInputRef.current?.focus()
-    }, 50)
-    setTimeout(() => {
-      messageInputRef.current?.focus()
-    }, 100)
+    // 미리보기 파일이 있으면 파일과 함께 전송
+    if (previewFiles.length > 0) {
+      try {
+        setUploadingFile(true)
+        setUploadProgress({ current: 0, total: previewFiles.length })
 
-    try {
-      // 실제 전송
-      const sentMessage = await socketClient.sendMessage({
+        const uploadedFiles: Array<{
+          fileUrl: string;
+          fileName: string;
+          fileSize: number;
+          thumbnailUrl?: string;
+        }> = []
+
+        // 모든 파일 순차 업로드
+        for (let i = 0; i < previewFiles.length; i++) {
+          const file = previewFiles[i]
+          
+          setUploadProgress({ current: i + 1, total: previewFiles.length })
+          
+          const validation = validateFile(file)
+          if (!validation) continue
+
+          try {
+            // 파일 업로드
+            const result = await apiClient.uploadFile(file, currentUser.id, chatId)
+            
+            const fileUrl = result.fileUrl || result.data?.fileUrl
+            const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
+            
+            if (!fileUrl) {
+              throw new Error('파일 URL을 받지 못했습니다.')
+            }
+
+            // 업로드된 파일 정보 저장
+            uploadedFiles.push({
+              fileUrl: fileUrl,
+              fileName: file.name,
+              fileSize: file.size,
+              thumbnailUrl: thumbnailUrl,
+            })
+          } catch (error) {
+            console.error(`❌ 파일 업로드 실패:`, error)
+            showToast(`${file.name} 업로드 실패`, 'error')
+          }
+        }
+
+        // 업로드된 파일이 있으면 메시지로 전송
+        if (uploadedFiles.length > 0) {
+          // 이미지만 필터링
+          const imageFiles = uploadedFiles.filter(file => {
+            const ext = file.fileName.toLowerCase().split('.').pop() || ''
+            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
+            return imageExtensions.includes(ext) || file.fileName.toLowerCase().includes('image')
+          })
+
+          if (imageFiles.length === 1) {
+            // 단일 이미지 + 텍스트
+            const sentMessage = await socketClient.sendMessage({
+              roomId: chatId,
+              userId: currentUser.id,
+              content: messageContent || imageFiles[0].fileName,
+              type: 'image',
+              fileUrl: imageFiles[0].fileUrl,
+              fileName: imageFiles[0].fileName,
+              fileSize: imageFiles[0].fileSize,
+            })
+            console.log('✅ 단일 이미지 + 텍스트 메시지 전송 완료:', sentMessage)
+          } else if (imageFiles.length > 1) {
+            // 여러 이미지 묶음 + 텍스트
+            const sentMessage = await socketClient.sendMessage({
+              roomId: chatId,
+              userId: currentUser.id,
+              content: messageContent || `${imageFiles.length}장의 사진`,
+              type: 'images',
+              files: imageFiles,
+            })
+            console.log('✅ 여러 이미지 묶음 + 텍스트 메시지 전송 완료:', sentMessage)
+          }
+
+          // 비디오나 기타 파일이 있으면 개별 전송
+          const otherFiles = uploadedFiles.filter(file => !imageFiles.includes(file))
+          for (const file of otherFiles) {
+            const ext = file.fileName.toLowerCase().split('.').pop() || ''
+            const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
+            const messageType = videoExtensions.includes(ext) ? 'video' : 'file'
+
+            await socketClient.sendMessage({
+              roomId: chatId,
+              userId: currentUser.id,
+              content: messageContent || file.fileName,
+              type: messageType,
+              fileUrl: file.fileUrl,
+              fileName: file.fileName,
+              fileSize: file.fileSize,
+            })
+          }
+
+          showToast(`${uploadedFiles.length}개 파일을 전송했습니다`, 'success')
+        }
+
+        // 미리보기 초기화 및 메시지 입력창 초기화
+        setPreviewFiles([])
+        setIsPreviewMode(false)
+        setMessage('')
+        setShouldAutoScroll(true)
+        
+        // 키보드 유지
+        requestAnimationFrame(() => {
+          messageInputRef.current?.focus()
+        })
+        setTimeout(() => {
+          messageInputRef.current?.focus()
+        }, 50)
+        setTimeout(() => {
+          messageInputRef.current?.focus()
+        }, 100)
+        
+      } catch (error) {
+        console.error('❌ 파일 전송 실패:', error)
+        showToast('파일 전송에 실패했습니다', 'error')
+      } finally {
+        setUploadingFile(false)
+        setUploadProgress({ current: 0, total: 0 })
+      }
+    } else {
+      // 텍스트만 전송
+      const optimisticMessage: SocketMessage = {
+        id: tempId,
+        tempId,
         roomId: chatId,
         userId: currentUser.id,
         content: messageContent,
         type: 'text',
+        timestamp: new Date(),
+        isPending: true,
+      }
+      
+      setMessages(prev => [...prev, optimisticMessage])
+      setMessage('')
+      setShouldAutoScroll(true)
+      
+      // 키보드 유지
+      requestAnimationFrame(() => {
+        messageInputRef.current?.focus()
       })
+      setTimeout(() => {
+        messageInputRef.current?.focus()
+      }, 50)
+      setTimeout(() => {
+        messageInputRef.current?.focus()
+      }, 100)
 
-      // 임시 메시지를 실제 메시지로 교체
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.tempId === tempId ? { ...sentMessage, isPending: false } : msg
+      try {
+        const sentMessage = await socketClient.sendMessage({
+          roomId: chatId,
+          userId: currentUser.id,
+          content: messageContent,
+          type: 'text',
+        })
+
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.tempId === tempId ? { ...sentMessage, isPending: false } : msg
+          )
         )
-      )
-    } catch (error) {
-      console.error('❌ 메시지 전송 실패:', error)
-      
-      // 실패한 메시지 표시
-      setMessages(prev => 
-        prev.map(msg => 
-          msg.tempId === tempId ? { ...msg, isPending: false, isFailed: true } : msg
+      } catch (error) {
+        console.error('❌ 메시지 전송 실패:', error)
+        
+        setMessages(prev => 
+          prev.map(msg => 
+            msg.tempId === tempId ? { ...msg, isPending: false, isFailed: true } : msg
+          )
         )
-      )
-      
-      showToast('메시지 전송에 실패했습니다.', 'error')
+        
+        showToast('메시지 전송에 실패했습니다.', 'error')
+      }
     }
-  }, [message, currentUser, chatId, showToast])
+  }, [message, previewFiles, currentUser, chatId, showToast])
 
   // Enter 키로 메시지 전송
   const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -794,6 +923,45 @@ export default function ChatRoomPage() {
     return { isImage, isVideo }
   }
 
+  // 미리보기에서 파일 제거
+  const removePreviewFile = (index: number) => {
+    setPreviewFiles(prev => {
+      const newFiles = prev.filter((_, i) => i !== index)
+      if (newFiles.length === 0) {
+        setIsPreviewMode(false)
+      }
+      return newFiles
+    })
+  }
+
+  // 미리보기에서 모든 파일 제거
+  const clearPreview = () => {
+    setPreviewFiles([])
+    setIsPreviewMode(false)
+  }
+
+  // 미리보기 파일들을 실제로 전송
+  const sendPreviewFiles = async () => {
+    if (previewFiles.length === 0) return
+    
+    try {
+      await handleChatFileUploadFromFiles(previewFiles)
+      clearPreview()
+    } catch (error) {
+      console.error('❌ 미리보기 파일 전송 실패:', error)
+      showToast('파일 전송에 실패했습니다', 'error')
+    }
+  }
+
+  // 파일을 미리보기에 추가
+  const addToPreview = (files: File[]) => {
+    const validFiles = files.filter(file => validateFile(file))
+    if (validFiles.length > 0) {
+      setPreviewFiles(prev => [...prev, ...validFiles])
+      setIsPreviewMode(true)
+    }
+  }
+
   // 클립보드에서 이미지 붙여넣기 처리
   const handleClipboardPaste = async (e: ClipboardEvent) => {
     // 디바운스: 짧은 시간 내 중복 실행 방지
@@ -874,8 +1042,8 @@ export default function ChatRoomPage() {
 
       console.log(`📋 클립보드에서 ${files.length}개 이미지 붙여넣기`)
 
-      // 파일 업로드 처리 (기존 로직 재사용)
-      await handleChatFileUploadFromFiles(files)
+      // 미리보기에 추가 (즉시 업로드하지 않음)
+      addToPreview(files)
 
     } catch (error) {
       console.error('❌ 클립보드 붙여넣기 실패:', error)
@@ -1008,15 +1176,15 @@ export default function ChatRoomPage() {
     }
   }
 
-  // 채팅 메시지로 파일 전송 (여러 장 묶음 지원)
+  // 채팅 메시지로 파일 전송 (미리보기 모드)
   const handleChatFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0 || !currentUser || !chatId) return
 
     const fileArray = Array.from(files)
     
-    // 공통 파일 업로드 함수 사용
-    await handleChatFileUploadFromFiles(fileArray)
+    // 미리보기에 추가 (즉시 업로드하지 않음)
+    addToPreview(fileArray)
 
     // 파일 입력 초기화
     if (fileInputRef.current) {
@@ -1260,7 +1428,10 @@ export default function ChatRoomPage() {
                 className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
                 onClick={() => window.open(fileUrl, '_blank')}
               />
-              <p className="text-xs opacity-75">{msg.fileName || msg.content}</p>
+              {/* 텍스트가 있을 때만 표시 (파일명은 숨김) */}
+              {msg.content && msg.content !== msg.fileName && (
+                <p className="text-sm">{msg.content}</p>
+              )}
             </div>
           ) : msg.type === 'images' ? (
             <div className="space-y-2">
@@ -1294,7 +1465,10 @@ export default function ChatRoomPage() {
                   )
                 })}
               </div>
-              <p className="text-xs opacity-75">{msg.content}</p>
+              {/* 텍스트가 있을 때만 표시 (파일 개수는 숨김) */}
+              {msg.content && !msg.content.includes('장의 사진') && (
+                <p className="text-sm">{msg.content}</p>
+              )}
             </div>
           ) : msg.type === 'video' ? (
             <div className="space-y-2">
@@ -1303,10 +1477,10 @@ export default function ChatRoomPage() {
                 controls
                 className="rounded-lg max-w-full h-auto"
               />
-              <p className="text-xs opacity-75">
-                {msg.fileName || msg.content}
-                {msg.fileSize && ` (${formatFileSize(msg.fileSize)})`}
-              </p>
+              {/* 텍스트가 있을 때만 표시 (파일명은 숨김) */}
+              {msg.content && msg.content !== msg.fileName && (
+                <p className="text-sm">{msg.content}</p>
+              )}
             </div>
           ) : (
             <p className="text-sm">{msg.content}</p>
@@ -1500,6 +1674,76 @@ export default function ChatRoomPage() {
         )}
       </div>
 
+      {/* 미리보기 영역 */}
+      {isPreviewMode && previewFiles.length > 0 && (
+        <div className="bg-secondary/30 border-t border-divider px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-primary">
+              전송할 파일 ({previewFiles.length}개)
+            </h3>
+            <button
+              onClick={clearPreview}
+              className="px-3 py-1.5 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors"
+            >
+              취소
+            </button>
+          </div>
+          
+          {/* 안내 메시지 */}
+          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              💡 아래 전송 버튼(↑)을 눌러 메시지와 함께 전송하세요
+            </p>
+          </div>
+          
+          {/* 미리보기 그리드 */}
+          <div className="grid grid-cols-4 gap-2">
+            {previewFiles.map((file, index) => {
+              const validation = validateFile(file)
+              if (!validation) return null
+              
+              const isImage = validation.isImage
+              const fileUrl = URL.createObjectURL(file)
+              
+              return (
+                <div
+                  key={index}
+                  className="relative aspect-square bg-gray-200 rounded-lg overflow-hidden group"
+                >
+                  {isImage ? (
+                    <img
+                      src={fileUrl}
+                      alt={file.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-gray-300">
+                      <span className="text-2xl">🎥</span>
+                    </div>
+                  )}
+                  
+                  {/* 삭제 버튼 */}
+                  <button
+                    onClick={() => removePreviewFile(index)}
+                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    ✕
+                  </button>
+                  
+                  {/* 파일 정보 */}
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1">
+                    <div className="truncate">{file.name}</div>
+                    <div className="text-xs opacity-75">
+                      {(file.size / 1024 / 1024).toFixed(1)}MB
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 메시지 입력 */}
       <div className="bg-primary border-t border-divider px-4 py-3">
         {(uploadingFile || isPasting) && (
@@ -1567,9 +1811,9 @@ export default function ChatRoomPage() {
               e.preventDefault()
               handleSendMessage()
             }}
-            disabled={!message.trim() || uploadingFile || isPasting}
+            disabled={(!message.trim() && previewFiles.length === 0) || uploadingFile || isPasting}
             className={`p-3 rounded-full transition-all ${
-              message.trim() && !uploadingFile && !isPasting
+              (message.trim() || previewFiles.length > 0) && !uploadingFile && !isPasting
                 ? 'bg-[#0064FF] text-white hover:bg-[#0052CC] active:scale-95'
                 : 'bg-secondary text-secondary cursor-not-allowed'
             }`}
