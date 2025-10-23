@@ -1491,13 +1491,17 @@ export default function ChatRoomPage() {
         return (
           <a
             key={index}
-            href={part}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-400 hover:text-blue-300 underline break-all"
+            className="text-blue-400 hover:text-blue-300 underline break-all cursor-pointer"
             onClick={(e) => {
+              e.preventDefault()
               e.stopPropagation()
-              window.open(part, '_blank')
+              // 모바일에서는 현재 창에서, 데스크톱에서는 새 창으로 열기
+              const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+              if (isMobile) {
+                window.location.href = part
+              } else {
+                window.open(part, '_blank')
+              }
             }}
           >
             {part}
