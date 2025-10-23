@@ -1481,6 +1481,33 @@ export default function ChatRoomPage() {
   }
 
   // 메시지 렌더링
+  // 텍스트 내 링크를 클릭 가능하게 만드는 함수
+  const renderTextWithLinks = useCallback((text: string) => {
+    const urlRegex = /(https?:\/\/[^\s]+)/g
+    const parts = text.split(urlRegex)
+    
+    return parts.map((part, index) => {
+      if (urlRegex.test(part)) {
+        return (
+          <a
+            key={index}
+            href={part}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-400 hover:text-blue-300 underline break-all"
+            onClick={(e) => {
+              e.stopPropagation()
+              window.open(part, '_blank')
+            }}
+          >
+            {part}
+          </a>
+        )
+      }
+      return part
+    })
+  }, [])
+
   const renderMessage = useCallback((msg: SocketMessage) => {
     const isMyMessage = msg.userId === currentUser?.id
     const fileUrl = getFileUrl(msg.fileUrl)
@@ -1500,7 +1527,7 @@ export default function ChatRoomPage() {
           } ${msg.isPending ? 'opacity-60' : ''}`}
         >
           {msg.type === 'text' ? (
-            <p className="text-sm">{msg.content}</p>
+            <p className="text-sm">{renderTextWithLinks(msg.content)}</p>
           ) : msg.type === 'image' ? (
             <div className="space-y-2">
               <img 
