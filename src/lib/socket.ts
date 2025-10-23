@@ -22,10 +22,16 @@ export interface Message {
   roomId: string
   userId: string
   content: string
-  type: 'text' | 'image' | 'video' | 'file'
+  type: 'text' | 'image' | 'video' | 'file' | 'images'
   fileUrl?: string
   fileName?: string
   fileSize?: number
+  files?: Array<{
+    fileUrl: string;
+    fileName: string;
+    fileSize: number;
+    thumbnailUrl?: string;
+  }>
   timestamp: Date
   // 낙관적 업데이트용 상태
   isPending?: boolean  // 전송 중
@@ -174,10 +180,16 @@ class SocketClient {
     roomId: string
     userId: string
     content: string
-    type?: 'text' | 'image' | 'video' | 'file'
+    type?: 'text' | 'image' | 'video' | 'file' | 'images'
     fileUrl?: string
     fileName?: string
     fileSize?: number
+    files?: Array<{
+      fileUrl: string;
+      fileName: string;
+      fileSize: number;
+      thumbnailUrl?: string;
+    }>
   }): Promise<Message> {
     await this.waitForConnection()
     

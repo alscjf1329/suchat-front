@@ -18,6 +18,7 @@ export default function ChatRoomPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const albumFileInputRef = useRef<HTMLInputElement>(null)
   const messageInputRef = useRef<HTMLInputElement>(null)
   const [message, setMessage] = useState('')
   const [messages, setMessages] = useState<SocketMessage[]>([])
@@ -750,37 +751,164 @@ export default function ChatRoomPage() {
     })
   }
 
-  // 파일 선택 처리 (사진첩에 업로드)
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 파일 타입 검증 함수 (공통)
+  const validateFile = (file: File) => {
+    const fileExtension = file.name.toLowerCase().split('.').pop() || ''
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
+    const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
+    
+    const isImage = file.type.startsWith('image/') || imageExtensions.includes(fileExtension)
+    const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension)
+    
+    if (!isImage && !isVideo) {
+      showToast(`${file.name}: 이미지 또는 동영상 파일만 업로드할 수 있습니다.`, 'error')
+      return null
+    }
+
+    if (file.size > 100 * 1024 * 1024) {
+      showToast(`${file.name}: 파일 크기는 100MB를 초과할 수 없습니다.`, 'error')
+      return null
+    }
+
+    return { isImage, isVideo }
+  }
+
+  // 채팅 메시지로 파일 전송 (여러 장 묶음 지원)
+  const handleChatFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0 || !currentUser || !chatId) return
 
-    // 파일 배열로 변환
     const fileArray = Array.from(files)
-    
-    console.log(`📤 사진첩에 ${fileArray.length}개 파일 업로드`)
+    console.log(`💬 채팅 메시지로 ${fileArray.length}개 파일 전송`)
 
-    // 파일 타입 검증 함수
-    const validateFile = (file: File) => {
-      const fileExtension = file.name.toLowerCase().split('.').pop() || ''
-      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
-      const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
-      
-      const isImage = file.type.startsWith('image/') || imageExtensions.includes(fileExtension)
-      const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension)
-      
-      if (!isImage && !isVideo) {
-        showToast(`${file.name}: 이미지 또는 동영상 파일만 업로드할 수 있습니다.`, 'error')
-        return null
+    try {
+      setUploadingFile(true)
+      setUploadProgress({ current: 0, total: fileArray.length })
+
+      const uploadedFiles: Array<{
+        fileUrl: string;
+        fileName: string;
+        fileSize: number;
+        thumbnailUrl?: string;
+      }> = []
+
+      // 모든 파일 순차 업로드
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i]
+        
+        setUploadProgress({ current: i + 1, total: fileArray.length })
+        console.log(`📤 [${i + 1}/${fileArray.length}] 채팅 메시지 업로드 시작: ${file.name}`)
+        
+        const validation = validateFile(file)
+        if (!validation) continue
+
+        try {
+          // 파일 업로드
+          const result = await apiClient.uploadFile(file, currentUser.id, chatId)
+          
+          console.log(`📦 [${i + 1}/${fileArray.length}] 파일 업로드 완료:`, result)
+          
+          const fileUrl = result.fileUrl || result.data?.fileUrl
+          const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
+          
+          if (!fileUrl) {
+            throw new Error('파일 URL을 받지 못했습니다.')
+          }
+
+          // 업로드된 파일 정보 저장
+          uploadedFiles.push({
+            fileUrl: fileUrl,
+            fileName: file.name,
+            fileSize: file.size,
+            thumbnailUrl: thumbnailUrl,
+          })
+
+          console.log(`✅ [${i + 1}/${fileArray.length}] 파일 업로드 완료`)
+        } catch (error) {
+          console.error(`❌ [${i + 1}/${fileArray.length}] 파일 업로드 실패:`, error)
+          showToast(`${file.name} 업로드 실패`, 'error')
+        }
       }
 
-      if (file.size > 100 * 1024 * 1024) {
-        showToast(`${file.name}: 파일 크기는 100MB를 초과할 수 없습니다.`, 'error')
-        return null
+      // 업로드된 파일이 있으면 메시지로 전송
+      if (uploadedFiles.length > 0) {
+        try {
+          // 이미지만 필터링
+          const imageFiles = uploadedFiles.filter(file => {
+            const ext = file.fileName.toLowerCase().split('.').pop() || ''
+            const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
+            return imageExtensions.includes(ext) || file.fileName.toLowerCase().includes('image')
+          })
+
+          if (imageFiles.length === 1) {
+            // 단일 이미지
+            const sentMessage = await socketClient.sendMessage({
+              roomId: chatId,
+              userId: currentUser.id,
+              content: imageFiles[0].fileName,
+              type: 'image',
+              fileUrl: imageFiles[0].fileUrl,
+              fileName: imageFiles[0].fileName,
+              fileSize: imageFiles[0].fileSize,
+            })
+            console.log('✅ 단일 이미지 메시지 전송 완료:', sentMessage)
+          } else if (imageFiles.length > 1) {
+            // 여러 이미지 묶음
+            const sentMessage = await socketClient.sendMessage({
+              roomId: chatId,
+              userId: currentUser.id,
+              content: `${imageFiles.length}장의 사진`,
+              type: 'images',
+              files: imageFiles,
+            })
+            console.log('✅ 여러 이미지 묶음 메시지 전송 완료:', sentMessage)
+          }
+
+          // 비디오나 기타 파일이 있으면 개별 전송
+          const otherFiles = uploadedFiles.filter(file => !imageFiles.includes(file))
+          for (const file of otherFiles) {
+            const ext = file.fileName.toLowerCase().split('.').pop() || ''
+            const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
+            const messageType = videoExtensions.includes(ext) ? 'video' : 'file'
+
+            await socketClient.sendMessage({
+              roomId: chatId,
+              userId: currentUser.id,
+              content: file.fileName,
+              type: messageType,
+              fileUrl: file.fileUrl,
+              fileName: file.fileName,
+              fileSize: file.fileSize,
+            })
+          }
+
+          showToast(`${uploadedFiles.length}개 파일을 전송했습니다`, 'success')
+        } catch (error) {
+          console.error('❌ 메시지 전송 실패:', error)
+          showToast('메시지 전송에 실패했습니다', 'error')
+        }
       }
 
-      return { isImage, isVideo }
+      // 파일 입력 초기화
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (error) {
+      console.error('❌ 채팅 메시지 전송 실패:', error)
+      showToast(`파일 전송에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
+    } finally {
+      setUploadingFile(false)
+      setUploadProgress({ current: 0, total: 0 })
     }
+  }
+
+  // 사진첩에 파일 추가
+  const handleAlbumFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !currentUser || !chatId) return
+
+    const fileArray = Array.from(files)
+    console.log(`📷 사진첩에 ${fileArray.length}개 파일 업로드`)
 
     try {
       setUploadingFile(true)
@@ -822,7 +950,7 @@ export default function ChatRoomPage() {
 
           console.log(`✅ [${i + 1}/${fileArray.length}] 사진첩에 추가 완료:`, albumResponse)
         } catch (error) {
-          console.error(`❌ [${i + 1}/${fileArray.length}] 업로드 실패:`, error)
+          console.error(`❌ [${i + 1}/${fileArray.length}] 사진첩 업로드 실패:`, error)
           showToast(`${file.name} 업로드 실패`, 'error')
         }
       }
@@ -833,11 +961,11 @@ export default function ChatRoomPage() {
       await loadAlbum(selectedFolderId)
 
       // 파일 입력 초기화
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+      if (albumFileInputRef.current) {
+        albumFileInputRef.current.value = ''
       }
     } catch (error) {
-      console.error('❌ 파일 업로드 실패:', error)
+      console.error('❌ 사진첩 업로드 실패:', error)
       showToast(`파일 업로드에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     } finally {
       setUploadingFile(false)
@@ -1011,6 +1139,40 @@ export default function ChatRoomPage() {
                 onClick={() => window.open(fileUrl, '_blank')}
               />
               <p className="text-xs opacity-75">{msg.fileName || msg.content}</p>
+            </div>
+          ) : msg.type === 'images' ? (
+            <div className="space-y-2">
+              {/* 여러 이미지 동적 그리드 (3장 이하는 n열, 4장 이상은 3열) */}
+              <div 
+                className="grid gap-1 max-w-full"
+                style={{
+                  gridTemplateColumns: `repeat(${
+                    (msg.files?.length || 0) <= 3 
+                      ? (msg.files?.length || 1) 
+                      : 3
+                  }, 1fr)`
+                }}
+              >
+                {msg.files?.map((file, index) => {
+                  const imageUrl = getFileUrl(file.fileUrl)
+                  const thumbnailUrl = file.thumbnailUrl ? getFileUrl(file.thumbnailUrl) : imageUrl
+                  
+                  return (
+                    <div
+                      key={index}
+                      className="aspect-square bg-gray-200 rounded cursor-pointer hover:opacity-90 transition-opacity overflow-hidden"
+                      onClick={() => window.open(imageUrl, '_blank')}
+                    >
+                      <img
+                        src={thumbnailUrl}
+                        alt={file.fileName}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="text-xs opacity-75">{msg.content}</p>
             </div>
           ) : msg.type === 'video' ? (
             <div className="space-y-2">
@@ -1234,7 +1396,7 @@ export default function ChatRoomPage() {
             ref={fileInputRef}
             type="file"
             accept="image/*,video/*,.heic,.heif,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg,.mp4,.webm,.mov,.m4v"
-            onChange={handleFileChange}
+            onChange={handleChatFileUpload}
             className="hidden"
             multiple
           />
@@ -1329,8 +1491,17 @@ export default function ChatRoomPage() {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {/* 사진첩용 파일 입력 */}
+                    <input
+                      ref={albumFileInputRef}
+                      type="file"
+                      accept="image/*,video/*,.heic,.heif,.jpg,.jpeg,.png,.gif,.webp,.bmp,.tiff,.svg,.mp4,.webm,.mov,.m4v"
+                      onChange={handleAlbumFileUpload}
+                      className="hidden"
+                      multiple
+                    />
                     <button
-                      onClick={handleFileClick}
+                      onClick={() => albumFileInputRef.current?.click()}
                       className="px-4 py-2 bg-[#0064FF] text-white rounded-lg hover:bg-[#0052CC] transition-colors flex items-center space-x-2"
                     >
                       <span>➕</span>
