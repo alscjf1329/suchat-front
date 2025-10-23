@@ -530,7 +530,7 @@ export default function ChatRoomPage() {
             })
           } catch (error) {
             console.error(`❌ 파일 업로드 실패:`, error)
-            showToast(`${file.name} 업로드 실패`, 'error')
+            // showToast(`${file.name} 업로드 실패`, 'error')
           }
         }
 
@@ -585,7 +585,7 @@ export default function ChatRoomPage() {
             })
           }
 
-          showToast(`${uploadedFiles.length}개 파일을 전송했습니다`, 'success')
+          // showToast(`${uploadedFiles.length}개 파일을 전송했습니다`, 'success')
         }
 
         // 미리보기 초기화 및 메시지 입력창 초기화
@@ -607,7 +607,7 @@ export default function ChatRoomPage() {
         
       } catch (error) {
         console.error('❌ 파일 전송 실패:', error)
-        showToast('파일 전송에 실패했습니다', 'error')
+        // showToast('파일 전송에 실패했습니다', 'error')
       } finally {
         setUploadingFile(false)
         setUploadProgress({ current: 0, total: 0 })
@@ -662,7 +662,7 @@ export default function ChatRoomPage() {
         )
       )
       
-      showToast('메시지 전송에 실패했습니다.', 'error')
+          // showToast('메시지 전송에 실패했습니다.', 'error')
     }
     }
   }, [message, previewFiles, currentUser, chatId, showToast])
@@ -1008,7 +1008,7 @@ export default function ChatRoomPage() {
       clearPreview()
     } catch (error) {
       console.error('❌ 미리보기 파일 전송 실패:', error)
-      showToast('파일 전송에 실패했습니다', 'error')
+      // showToast('파일 전송에 실패했습니다', 'error')
     }
   }
 
@@ -1030,10 +1030,10 @@ export default function ChatRoomPage() {
           processedFiles.push(compressedFile)
           
           // 압축률 표시
-          const compressionRatio = ((file.size - compressedFile.size) / file.size * 100).toFixed(1)
-          if (compressionRatio !== '0.0') {
-            showToast(`${file.name}: ${compressionRatio}% 압축됨`, 'success')
-          }
+          // const compressionRatio = ((file.size - compressedFile.size) / file.size * 100).toFixed(1)
+          // if (compressionRatio !== '0.0') {
+          //   showToast(`${file.name}: ${compressionRatio}% 압축됨`, 'success')
+          // }
         } catch (error) {
           console.error('이미지 압축 실패:', error)
           processedFiles.push(file) // 압축 실패 시 원본 사용
@@ -1134,7 +1134,7 @@ export default function ChatRoomPage() {
 
     } catch (error) {
       console.error('❌ 클립보드 붙여넣기 실패:', error)
-      showToast('클립보드 이미지 붙여넣기에 실패했습니다', 'error')
+      // showToast('클립보드 이미지 붙여넣기에 실패했습니다', 'error')
     } finally {
       setIsPasting(false)
       console.log('✅ 클립보드 붙여넣기 완료')
@@ -1188,7 +1188,7 @@ export default function ChatRoomPage() {
 
          } catch (error) {
            console.error(`파일 업로드 실패:`, error)
-          showToast(`${file.name} 업로드 실패`, 'error')
+          // showToast(`${file.name} 업로드 실패`, 'error')
         }
       }
 
@@ -1242,7 +1242,7 @@ export default function ChatRoomPage() {
             })
           }
 
-          showToast(`${uploadedFiles.length}개 파일을 전송했습니다`, 'success')
+          // showToast(`${uploadedFiles.length}개 파일을 전송했습니다`, 'success')
         } catch (error) {
           console.error('❌ 메시지 전송 실패:', error)
           showToast('메시지 전송에 실패했습니다', 'error')
@@ -1322,7 +1322,7 @@ export default function ChatRoomPage() {
           console.log(`✅ [${i + 1}/${fileArray.length}] 사진첩에 추가 완료:`, albumResponse)
         } catch (error) {
           console.error(`❌ [${i + 1}/${fileArray.length}] 사진첩 업로드 실패:`, error)
-          showToast(`${file.name} 업로드 실패`, 'error')
+          // showToast(`${file.name} 업로드 실패`, 'error')
         }
       }
 
@@ -1802,11 +1802,11 @@ export default function ChatRoomPage() {
           </div>
           
           {/* 안내 메시지 */}
-          <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+          {/* <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <p className="text-xs text-blue-600 dark:text-blue-400">
               💡 이미지가 자동으로 최적화됩니다. 아래 전송 버튼(↑)을 눌러 메시지와 함께 전송하세요
             </p>
-          </div>
+          </div> */}
           
            {/* 미리보기 그리드 (성능 최적화) */}
            <div className="grid grid-cols-4 gap-2">
