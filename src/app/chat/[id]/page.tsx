@@ -36,6 +36,9 @@ export default function ChatRoomPage() {
   const [previewFiles, setPreviewFiles] = useState<File[]>([])
   const [isPreviewMode, setIsPreviewMode] = useState(false)
   
+  // 드래그 앤 드롭 상태
+  const [isDragOver, setIsDragOver] = useState(false)
+  
   // 무한 스크롤 상태
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [hasMoreMessages, setHasMoreMessages] = useState(true)
@@ -502,14 +505,14 @@ export default function ChatRoomPage() {
         for (let i = 0; i < previewFiles.length; i++) {
           const file = previewFiles[i]
           
-          setUploadProgress({ current: i + 1, total: previewFiles.length })
-          
-          const validation = validateFile(file)
-          if (!validation) continue
+         setUploadProgress({ current: i + 1, total: previewFiles.length })
+         
+         const validation = validateFile(file)
+         if (!validation) continue
 
-          try {
-            // 파일 업로드
-            const result = await apiClient.uploadFile(file, currentUser.id, chatId)
+         try {
+           // 파일 업로드 (로깅 제거로 성능 향상)
+           const result = await apiClient.uploadFile(file, currentUser.id, chatId)
             
             const fileUrl = result.fileUrl || result.data?.fileUrl
             const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
@@ -901,30 +904,40 @@ export default function ChatRoomPage() {
     })
   }
 
-  // 파일 타입 검증 함수 (공통)
-  const validateFile = (file: File) => {
+  // 파일 타입 검증 함수 (성능 최적화)
+  const validateFile = useCallback((file: File) => {
+    // 파일 크기 먼저 체크 (가장 빠른 검증)
+    if (file.size > 100 * 1024 * 1024) {
+      showToast(`${file.name}: 파일 크기는 100MB를 초과할 수 없습니다.`, 'error')
+      return null
+    }
+
+    // MIME 타입으로 먼저 체크 (더 빠름)
+    if (file.type.startsWith('image/')) {
+      return { isImage: true, isVideo: false }
+    }
+    if (file.type.startsWith('video/')) {
+      return { isImage: false, isVideo: true }
+    }
+
+    // 확장자 체크 (fallback)
     const fileExtension = file.name.toLowerCase().split('.').pop() || ''
     const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
     const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
     
-    const isImage = file.type.startsWith('image/') || imageExtensions.includes(fileExtension)
-    const isVideo = file.type.startsWith('video/') || videoExtensions.includes(fileExtension)
+    const isImage = imageExtensions.includes(fileExtension)
+    const isVideo = videoExtensions.includes(fileExtension)
     
     if (!isImage && !isVideo) {
       showToast(`${file.name}: 이미지 또는 동영상 파일만 업로드할 수 있습니다.`, 'error')
       return null
     }
 
-    if (file.size > 100 * 1024 * 1024) {
-      showToast(`${file.name}: 파일 크기는 100MB를 초과할 수 없습니다.`, 'error')
-      return null
-    }
-
     return { isImage, isVideo }
-  }
+  }, [showToast])
 
-  // 미리보기에서 파일 제거
-  const removePreviewFile = (index: number) => {
+  // 미리보기에서 파일 제거 (메모리 최적화)
+  const removePreviewFile = useCallback((index: number) => {
     setPreviewFiles(prev => {
       const newFiles = prev.filter((_, i) => i !== index)
       if (newFiles.length === 0) {
@@ -932,13 +945,13 @@ export default function ChatRoomPage() {
       }
       return newFiles
     })
-  }
+  }, [])
 
-  // 미리보기에서 모든 파일 제거
-  const clearPreview = () => {
+  // 미리보기에서 모든 파일 제거 (메모리 최적화)
+  const clearPreview = useCallback(() => {
     setPreviewFiles([])
     setIsPreviewMode(false)
-  }
+  }, [])
 
   // 미리보기 파일들을 실제로 전송
   const sendPreviewFiles = async () => {
@@ -953,14 +966,14 @@ export default function ChatRoomPage() {
     }
   }
 
-  // 파일을 미리보기에 추가
-  const addToPreview = (files: File[]) => {
+  // 파일을 미리보기에 추가 (성능 최적화)
+  const addToPreview = useCallback((files: File[]) => {
     const validFiles = files.filter(file => validateFile(file))
     if (validFiles.length > 0) {
       setPreviewFiles(prev => [...prev, ...validFiles])
       setIsPreviewMode(true)
     }
-  }
+  }, [])
 
   // 클립보드에서 이미지 붙여넣기 처리
   const handleClipboardPaste = async (e: ClipboardEvent) => {
@@ -1075,17 +1088,14 @@ export default function ChatRoomPage() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         
-        setUploadProgress({ current: i + 1, total: files.length })
-        console.log(`📤 [${i + 1}/${files.length}] 채팅 메시지 업로드 시작: ${file.name}`)
-        
-        const validation = validateFile(file)
-        if (!validation) continue
+         setUploadProgress({ current: i + 1, total: files.length })
+         
+         const validation = validateFile(file)
+         if (!validation) continue
 
-        try {
-          // 파일 업로드
-          const result = await apiClient.uploadFile(file, currentUser.id, chatId)
-          
-          console.log(`📦 [${i + 1}/${files.length}] 파일 업로드 완료:`, result)
+         try {
+           // 파일 업로드 (로깅 제거로 성능 향상)
+           const result = await apiClient.uploadFile(file, currentUser.id, chatId)
           
           const fileUrl = result.fileUrl || result.data?.fileUrl
           const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
@@ -1102,9 +1112,8 @@ export default function ChatRoomPage() {
             thumbnailUrl: thumbnailUrl,
           })
 
-          console.log(`✅ [${i + 1}/${files.length}] 파일 업로드 완료`)
-        } catch (error) {
-          console.error(`❌ [${i + 1}/${files.length}] 파일 업로드 실패:`, error)
+         } catch (error) {
+           console.error(`파일 업로드 실패:`, error)
           showToast(`${file.name} 업로드 실패`, 'error')
         }
       }
@@ -1130,17 +1139,15 @@ export default function ChatRoomPage() {
               fileName: imageFiles[0].fileName,
               fileSize: imageFiles[0].fileSize,
             })
-            console.log('✅ 단일 이미지 메시지 전송 완료:', sentMessage)
-          } else if (imageFiles.length > 1) {
-            // 여러 이미지 묶음
-            const sentMessage = await socketClient.sendMessage({
-              roomId: chatId,
-              userId: currentUser.id,
-              content: `${imageFiles.length}장의 사진`,
-              type: 'images',
-              files: imageFiles,
-            })
-            console.log('✅ 여러 이미지 묶음 메시지 전송 완료:', sentMessage)
+           } else if (imageFiles.length > 1) {
+             // 여러 이미지 묶음
+             const sentMessage = await socketClient.sendMessage({
+               roomId: chatId,
+               userId: currentUser.id,
+               content: `${imageFiles.length}장의 사진`,
+               type: 'images',
+               files: imageFiles,
+             })
           }
 
           // 비디오나 기타 파일이 있으면 개별 전송
@@ -1696,51 +1703,58 @@ export default function ChatRoomPage() {
             </p>
           </div>
           
-          {/* 미리보기 그리드 */}
-          <div className="grid grid-cols-4 gap-2">
-            {previewFiles.map((file, index) => {
-              const validation = validateFile(file)
-              if (!validation) return null
-              
-              const isImage = validation.isImage
-              const fileUrl = URL.createObjectURL(file)
-              
-              return (
-                <div
-                  key={index}
-                  className="relative aspect-square bg-gray-200 rounded-lg overflow-hidden group"
-                >
-                  {isImage ? (
-                    <img
-                      src={fileUrl}
-                      alt={file.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gray-300">
-                      <span className="text-2xl">🎥</span>
-                    </div>
-                  )}
-                  
-                  {/* 삭제 버튼 */}
-                  <button
-                    onClick={() => removePreviewFile(index)}
-                    className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    ✕
-                  </button>
-                  
-                  {/* 파일 정보 */}
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1">
-                    <div className="truncate">{file.name}</div>
-                    <div className="text-xs opacity-75">
-                      {(file.size / 1024 / 1024).toFixed(1)}MB
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+           {/* 미리보기 그리드 (성능 최적화) */}
+           <div className="grid grid-cols-4 gap-2">
+             {previewFiles.map((file, index) => {
+               const validation = validateFile(file)
+               if (!validation) return null
+               
+               const isImage = validation.isImage
+               const fileUrl = URL.createObjectURL(file)
+               
+               return (
+                 <div
+                   key={`${file.name}-${file.size}-${index}`}
+                   className="relative aspect-square bg-gray-200 rounded-lg overflow-hidden group"
+                 >
+                   {isImage ? (
+                     <img
+                       src={fileUrl}
+                       alt={file.name}
+                       className="w-full h-full object-cover"
+                       loading="lazy"
+                       decoding="async"
+                       style={{ maxWidth: '100px', maxHeight: '100px' }}
+                       onLoad={() => {
+                         // 이미지 로드 완료 후 URL 해제 (메모리 절약)
+                         setTimeout(() => URL.revokeObjectURL(fileUrl), 1000)
+                       }}
+                     />
+                   ) : (
+                     <div className="w-full h-full flex items-center justify-center bg-gray-300">
+                       <span className="text-2xl">🎥</span>
+                     </div>
+                   )}
+                   
+                   {/* 삭제 버튼 */}
+                   <button
+                     onClick={() => removePreviewFile(index)}
+                     className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                   >
+                     ✕
+                   </button>
+                   
+                   {/* 파일 정보 */}
+                   <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1">
+                     <div className="truncate">{file.name}</div>
+                     <div className="text-xs opacity-75">
+                       {(file.size / 1024 / 1024).toFixed(1)}MB
+                     </div>
+                   </div>
+                 </div>
+               )
+             })}
+           </div>
         </div>
       )}
 
