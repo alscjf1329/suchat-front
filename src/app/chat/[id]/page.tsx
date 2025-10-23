@@ -614,56 +614,56 @@ export default function ChatRoomPage() {
       }
     } else {
       // 텍스트만 전송
-      const optimisticMessage: SocketMessage = {
-        id: tempId,
-        tempId,
+    const optimisticMessage: SocketMessage = {
+      id: tempId,
+      tempId,
+      roomId: chatId,
+      userId: currentUser.id,
+      content: messageContent,
+      type: 'text',
+      timestamp: new Date(),
+        isPending: true,
+    }
+    
+    setMessages(prev => [...prev, optimisticMessage])
+    setMessage('')
+    setShouldAutoScroll(true)
+    
+      // 키보드 유지
+    requestAnimationFrame(() => {
+      messageInputRef.current?.focus()
+    })
+    setTimeout(() => {
+      messageInputRef.current?.focus()
+    }, 50)
+    setTimeout(() => {
+      messageInputRef.current?.focus()
+    }, 100)
+
+    try {
+      const sentMessage = await socketClient.sendMessage({
         roomId: chatId,
         userId: currentUser.id,
         content: messageContent,
         type: 'text',
-        timestamp: new Date(),
-        isPending: true,
-      }
-      
-      setMessages(prev => [...prev, optimisticMessage])
-      setMessage('')
-      setShouldAutoScroll(true)
-      
-      // 키보드 유지
-      requestAnimationFrame(() => {
-        messageInputRef.current?.focus()
       })
-      setTimeout(() => {
-        messageInputRef.current?.focus()
-      }, 50)
-      setTimeout(() => {
-        messageInputRef.current?.focus()
-      }, 100)
 
-      try {
-        const sentMessage = await socketClient.sendMessage({
-          roomId: chatId,
-          userId: currentUser.id,
-          content: messageContent,
-          type: 'text',
-        })
-
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.tempId === tempId ? { ...sentMessage, isPending: false } : msg
-          )
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.tempId === tempId ? { ...sentMessage, isPending: false } : msg
         )
-      } catch (error) {
-        console.error('❌ 메시지 전송 실패:', error)
-        
-        setMessages(prev => 
-          prev.map(msg => 
-            msg.tempId === tempId ? { ...msg, isPending: false, isFailed: true } : msg
-          )
+      )
+    } catch (error) {
+      console.error('❌ 메시지 전송 실패:', error)
+      
+      setMessages(prev => 
+        prev.map(msg => 
+          msg.tempId === tempId ? { ...msg, isPending: false, isFailed: true } : msg
         )
-        
-        showToast('메시지 전송에 실패했습니다.', 'error')
-      }
+      )
+      
+      showToast('메시지 전송에 실패했습니다.', 'error')
+    }
     }
   }, [message, previewFiles, currentUser, chatId, showToast])
 
@@ -904,6 +904,52 @@ export default function ChatRoomPage() {
     })
   }
 
+  // 이미지 압축 및 리사이징 함수 (UX 최적화)
+  const compressImage = useCallback((file: File, maxWidth: number = 1920, maxHeight: number = 1080, quality: number = 0.8): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+
+      img.onload = () => {
+        // 원본 비율 유지하면서 리사이징
+        let { width, height } = img
+        
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height)
+          width *= ratio
+          height *= ratio
+        }
+
+        canvas.width = width
+        canvas.height = height
+
+        // 이미지 그리기
+        ctx?.drawImage(img, 0, 0, width, height)
+
+        // 압축된 이미지를 Blob으로 변환
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+              })
+              resolve(compressedFile)
+            } else {
+              reject(new Error('이미지 압축 실패'))
+            }
+          },
+          'image/jpeg',
+          quality
+        )
+      }
+
+      img.onerror = () => reject(new Error('이미지 로드 실패'))
+      img.src = URL.createObjectURL(file)
+    })
+  }, [])
+
   // 파일 타입 검증 함수 (성능 최적화)
   const validateFile = useCallback((file: File) => {
     // 파일 크기 먼저 체크 (가장 빠른 검증)
@@ -921,17 +967,17 @@ export default function ChatRoomPage() {
     }
 
     // 확장자 체크 (fallback)
-    const fileExtension = file.name.toLowerCase().split('.').pop() || ''
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
-    const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
-    
+      const fileExtension = file.name.toLowerCase().split('.').pop() || ''
+      const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'svg', 'heic', 'heif']
+      const videoExtensions = ['mp4', 'webm', 'mov', 'm4v']
+      
     const isImage = imageExtensions.includes(fileExtension)
     const isVideo = videoExtensions.includes(fileExtension)
-    
-    if (!isImage && !isVideo) {
-      showToast(`${file.name}: 이미지 또는 동영상 파일만 업로드할 수 있습니다.`, 'error')
-      return null
-    }
+      
+      if (!isImage && !isVideo) {
+        showToast(`${file.name}: 이미지 또는 동영상 파일만 업로드할 수 있습니다.`, 'error')
+        return null
+      }
 
     return { isImage, isVideo }
   }, [showToast])
@@ -966,14 +1012,42 @@ export default function ChatRoomPage() {
     }
   }
 
-  // 파일을 미리보기에 추가 (성능 최적화)
-  const addToPreview = useCallback((files: File[]) => {
+  // 파일을 미리보기에 추가 (이미지 자동 압축)
+  const addToPreview = useCallback(async (files: File[]) => {
     const validFiles = files.filter(file => validateFile(file))
-    if (validFiles.length > 0) {
-      setPreviewFiles(prev => [...prev, ...validFiles])
+    if (validFiles.length === 0) return
+
+    const processedFiles: File[] = []
+    
+    for (const file of validFiles) {
+      const validation = validateFile(file)
+      if (!validation) continue
+
+      if (validation.isImage) {
+        try {
+          // 이미지 압축 (채팅용으로 최적화)
+          const compressedFile = await compressImage(file, 1920, 1080, 0.8)
+          processedFiles.push(compressedFile)
+          
+          // 압축률 표시
+          const compressionRatio = ((file.size - compressedFile.size) / file.size * 100).toFixed(1)
+          if (compressionRatio !== '0.0') {
+            showToast(`${file.name}: ${compressionRatio}% 압축됨`, 'success')
+          }
+        } catch (error) {
+          console.error('이미지 압축 실패:', error)
+          processedFiles.push(file) // 압축 실패 시 원본 사용
+        }
+      } else {
+        processedFiles.push(file) // 비디오나 기타 파일은 그대로
+      }
+    }
+
+    if (processedFiles.length > 0) {
+      setPreviewFiles(prev => [...prev, ...processedFiles])
       setIsPreviewMode(true)
     }
-  }, [])
+  }, [validateFile, compressImage, showToast])
 
   // 클립보드에서 이미지 붙여넣기 처리
   const handleClipboardPaste = async (e: ClipboardEvent) => {
@@ -1055,8 +1129,8 @@ export default function ChatRoomPage() {
 
       console.log(`📋 클립보드에서 ${files.length}개 이미지 붙여넣기`)
 
-      // 미리보기에 추가 (즉시 업로드하지 않음)
-      addToPreview(files)
+      // 이미지 압축 후 미리보기에 추가
+      await addToPreview(files)
 
     } catch (error) {
       console.error('❌ 클립보드 붙여넣기 실패:', error)
@@ -1183,15 +1257,15 @@ export default function ChatRoomPage() {
     }
   }
 
-  // 채팅 메시지로 파일 전송 (미리보기 모드)
+  // 채팅 메시지로 파일 전송 (이미지 자동 압축)
   const handleChatFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0 || !currentUser || !chatId) return
 
     const fileArray = Array.from(files)
     
-    // 미리보기에 추가 (즉시 업로드하지 않음)
-    addToPreview(fileArray)
+    // 이미지 압축 후 미리보기에 추가
+    await addToPreview(fileArray)
 
     // 파일 입력 초기화
     if (fileInputRef.current) {
@@ -1699,7 +1773,7 @@ export default function ChatRoomPage() {
           {/* 안내 메시지 */}
           <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <p className="text-xs text-blue-600 dark:text-blue-400">
-              💡 아래 전송 버튼(↑)을 눌러 메시지와 함께 전송하세요
+              💡 이미지가 자동으로 최적화됩니다. 아래 전송 버튼(↑)을 눌러 메시지와 함께 전송하세요
             </p>
           </div>
           
@@ -1767,8 +1841,8 @@ export default function ChatRoomPage() {
               {isPasting 
                 ? '클립보드 이미지 붙여넣기 중...'
                 : uploadProgress.total > 1 
-                  ? `파일 업로드 중... (${uploadProgress.current}/${uploadProgress.total})`
-                  : '파일 업로드 중...'}
+                ? `파일 업로드 중... (${uploadProgress.current}/${uploadProgress.total})`
+                : '파일 업로드 중...'}
             </span>
           </div>
         )}
