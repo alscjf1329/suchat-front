@@ -1194,7 +1194,9 @@ export default function ChatRoomPage() {
   }, [validateFile, compressImage, showToast])
 
   // 클립보드에서 이미지 붙여넣기 처리
-  const handleClipboardPaste = async (e: ClipboardEvent) => {
+  const handleClipboardPaste = async (e: Event) => {
+    const clipboardEvent = e as ClipboardEvent
+    
     // 디바운스: 짧은 시간 내 중복 실행 방지
     if (pasteTimeoutRef.current) {
       console.log('🚫 클립보드 붙여넣기 디바운스 차단')
@@ -1217,7 +1219,7 @@ export default function ChatRoomPage() {
       pasteTimeoutRef.current = null
     }, 500)
 
-    const items = e.clipboardData?.items
+    const items = clipboardEvent.clipboardData?.items
     if (!items) {
       console.log('📋 클립보드에 아이템 없음')
       return
@@ -1240,9 +1242,9 @@ export default function ChatRoomPage() {
     }
 
     // 이벤트 전파 중단
-    e.preventDefault()
-    e.stopPropagation()
-    e.stopImmediatePropagation()
+    clipboardEvent.preventDefault()
+    clipboardEvent.stopPropagation()
+    clipboardEvent.stopImmediatePropagation()
 
     console.log(`📋 클립보드 붙여넣기 시작: ${imageItems.length}개 이미지`)
     setIsPasting(true)
