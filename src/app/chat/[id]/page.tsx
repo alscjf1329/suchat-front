@@ -26,7 +26,7 @@ export default function ChatRoomPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [uploadingFile, setUploadingFile] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0, success: 0, failed: 0 })
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
   const [isPasting, setIsPasting] = useState(false)
@@ -54,12 +54,137 @@ export default function ChatRoomPage() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
   const [albumTab, setAlbumTab] = useState<'folders' | 'photos'>('photos') // 모바일 탭
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    setToast({ message, type })
+  // 모바일 사진첩 선택 모드
+  const [isSelectionMode, setIsSelectionMode] = useState(false)
+  const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set())
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  // 모바일 사진첩 선택 모드 함수들
+  const toggleSelectionMode = useCallback(() => {
+    setIsSelectionMode(prev => !prev)
+    setSelectedPhotos(new Set())
+  }, [])
+
+  const togglePhotoSelection = useCallback((photoId: string) => {
+    setSelectedPhotos(prev => {
+      const newSet = new Set(prev)
+      if (newSet.has(photoId)) {
+        newSet.delete(photoId)
+      } else {
+        newSet.add(photoId)
+      }
+      return newSet
+    })
+  }, [])
+
+  const selectAllPhotos = useCallback(() => {
+    setSelectedPhotos(new Set(albumPhotos.map(photo => photo.id)))
+  }, [albumPhotos])
+
+  const clearSelection = useCallback(() => {
+    setSelectedPhotos(new Set())
   }, [])
 
   // URL에서 채팅방 ID 가져오기
   const chatId = params?.id as string
+
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+    setToast({ message, type })
+  }, [])
+
+  const deleteSelectedPhotos = useCallback(async () => {
+    if (selectedPhotos.size === 0) return
+
+    try {
+      const deletePromises = Array.from(selectedPhotos).map(photoId => 
+        apiClient.delete(`/chat/album/${chatId}/photos/${photoId}`)
+      )
+      await Promise.all(deletePromises)
+      
+      setAlbumPhotos(prev => prev.filter(photo => !selectedPhotos.has(photo.id)))
+      setSelectedPhotos(new Set())
+      setIsSelectionMode(false)
+      
+      // showToast(`${selectedPhotos.size}개 사진이 삭제되었습니다`, 'success')
+    } catch (error) {
+      console.error('사진 삭제 실패:', error)
+      // showToast('사진 삭제에 실패했습니다', 'error')
+    }
+  }, [selectedPhotos, chatId])
+
+  const downloadSelectedPhotos = useCallback(async () => {
+    if (selectedPhotos.size === 0 || isDownloading) return
+
+    setIsDownloading(true)
+    const selectedPhotoData = albumPhotos.filter(photo => selectedPhotos.has(photo.id))
+    const totalCount = selectedPhotoData.length
+    
+    // 단일 사진: 즉시 다운로드
+    if (totalCount === 1) {
+      const photo = selectedPhotoData[0]
+      const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${photo.fileUrl}`
+      
+      try {
+        // 백엔드에서 Content-Disposition 헤더로 강제 다운로드
+        const link = document.createElement('a')
+        link.href = fileUrl
+        link.download = photo.fileName || `photo_${photo.id}.jpg`
+        link.style.display = 'none'
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        
+        showToast('사진을 다운로드했습니다', 'success')
+      } catch (error) {
+        showToast('다운로드에 실패했습니다', 'error')
+      } finally {
+        setIsDownloading(false)
+      }
+      return
+    }
+    
+    // 여러 사진: 병렬 다운로드 (최대 3개 동시)
+    const BATCH_SIZE = 3
+    const batches = []
+    
+    for (let i = 0; i < totalCount; i += BATCH_SIZE) {
+      batches.push(selectedPhotoData.slice(i, i + BATCH_SIZE))
+    }
+    
+    let completedCount = 0
+    
+    for (const batch of batches) {
+      const promises = batch.map(async (photo) => {
+        const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${photo.fileUrl}`
+        
+        try {
+          // 백엔드에서 Content-Disposition 헤더로 강제 다운로드
+          const link = document.createElement('a')
+          link.href = fileUrl
+          link.download = photo.fileName || `photo_${photo.id}.jpg`
+          link.style.display = 'none'
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          
+          completedCount++
+          return { success: true, photo }
+        } catch (error) {
+          console.error(`다운로드 실패: ${photo.fileName}`, error)
+          return { success: false, photo, error }
+        }
+      })
+      
+      await Promise.allSettled(promises)
+      
+      if (batches.indexOf(batch) < batches.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+    }
+    
+    showToast(`${completedCount}/${totalCount}개 사진을 다운로드했습니다`, 'success')
+    setIsDownloading(false)
+  }, [selectedPhotos, albumPhotos, showToast, isDownloading])
 
   // 채팅방 참여 함수 (useCallback으로 최적화)
   const joinChatRoom = useCallback(async () => {
@@ -492,7 +617,7 @@ export default function ChatRoomPage() {
     if (previewFiles.length > 0) {
       try {
         setUploadingFile(true)
-        setUploadProgress({ current: 0, total: previewFiles.length })
+        setUploadProgress({ current: 0, total: previewFiles.length, success: 0, failed: 0 })
 
         const uploadedFiles: Array<{
           fileUrl: string;
@@ -505,7 +630,7 @@ export default function ChatRoomPage() {
         for (let i = 0; i < previewFiles.length; i++) {
           const file = previewFiles[i]
           
-         setUploadProgress({ current: i + 1, total: previewFiles.length })
+         setUploadProgress({ current: i + 1, total: previewFiles.length, success: 0, failed: 0 })
          
          const validation = validateFile(file)
          if (!validation) continue
@@ -610,7 +735,7 @@ export default function ChatRoomPage() {
         // showToast('파일 전송에 실패했습니다', 'error')
       } finally {
         setUploadingFile(false)
-        setUploadProgress({ current: 0, total: 0 })
+        setUploadProgress({ current: 0, total: 0, success: 0, failed: 0 })
       }
     } else {
       // 텍스트만 전송
@@ -845,7 +970,13 @@ export default function ChatRoomPage() {
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    if (confirm(`"${folder.name}" 폴더를 삭제하시겠습니까?\n(하위 폴더와 사진도 함께 삭제됩니다)`)) {
+                    // 하위 폴더 개수 확인
+                    const childCount = albumFolders.filter(f => f.parentId === folder.id).length
+                    const warningMessage = childCount > 0
+                      ? `⚠️ 경고: "${folder.name}" 폴더를 삭제하시겠습니까?\n\n이 폴더와 모든 하위 폴더(${childCount}개)가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`
+                      : `"${folder.name}" 폴더를 삭제하시겠습니까?\n\n이 폴더가 영구적으로 삭제됩니다.\n이 작업은 되돌릴 수 없습니다.`
+                    
+                    if (confirm(warningMessage)) {
                       apiClient.delete(`/chat/album/${chatId}/folders/${folder.id}`)
                         .then(() => {
                           showToast('폴더가 삭제되었습니다', 'success')
@@ -1149,7 +1280,7 @@ export default function ChatRoomPage() {
 
     try {
       setUploadingFile(true)
-      setUploadProgress({ current: 0, total: files.length })
+      setUploadProgress({ current: 0, total: files.length, success: 0, failed: 0 })
 
       const uploadedFiles: Array<{
         fileUrl: string;
@@ -1162,7 +1293,7 @@ export default function ChatRoomPage() {
       for (let i = 0; i < files.length; i++) {
         const file = files[i]
         
-         setUploadProgress({ current: i + 1, total: files.length })
+         setUploadProgress({ current: i + 1, total: files.length, success: 0, failed: 0 })
          
          const validation = validateFile(file)
          if (!validation) continue
@@ -1253,7 +1384,7 @@ export default function ChatRoomPage() {
       showToast(`파일 전송에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     } finally {
       setUploadingFile(false)
-      setUploadProgress({ current: 0, total: 0 })
+      setUploadProgress({ current: 0, total: 0, success: 0, failed: 0 })
     }
   }
 
@@ -1273,60 +1404,113 @@ export default function ChatRoomPage() {
     }
   }
 
-  // 사진첩에 파일 추가
+  // 사진첩에 파일 추가 (대량 업로드 지원 - 병렬 처리)
   const handleAlbumFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files || files.length === 0 || !currentUser || !chatId) return
 
     const fileArray = Array.from(files)
-    console.log(`📷 사진첩에 ${fileArray.length}개 파일 업로드`)
+    console.log(`📷 사진첩에 ${fileArray.length}개 파일 업로드 시작`)
+
+    // 유효한 파일만 필터링
+    const validFiles = fileArray.filter(file => {
+      const validation = validateFile(file)
+      return validation !== null
+    })
+
+    if (validFiles.length === 0) {
+      showToast('업로드할 수 있는 파일이 없습니다.', 'error')
+      return
+    }
 
     try {
       setUploadingFile(true)
-      setUploadProgress({ current: 0, total: fileArray.length })
+      setUploadProgress({ current: 0, total: validFiles.length, success: 0, failed: 0 })
 
-      // 모든 파일 순차 업로드
-      for (let i = 0; i < fileArray.length; i++) {
-        const file = fileArray[i]
-        
-        setUploadProgress({ current: i + 1, total: fileArray.length })
-        console.log(`📤 [${i + 1}/${fileArray.length}] 사진첩 업로드 시작: ${file.name}`)
-        
-        const validation = validateFile(file)
-        if (!validation) continue
+      // 병렬 업로드 설정 (동시에 5개씩 처리)
+      const CONCURRENT_UPLOADS = 5
+      let completedCount = 0
+      let successCount = 0
+      let failCount = 0
+      const errors: string[] = []
 
-        try {
-          // 파일 업로드
-          const result = await apiClient.uploadFile(file, currentUser.id, chatId)
-          
-          console.log(`📦 [${i + 1}/${fileArray.length}] 파일 업로드 완료:`, result)
-          
-          const messageType = validation.isImage ? 'image' : 'video'
-          const fileUrl = result.fileUrl || result.data?.fileUrl
-          const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
-          
-          if (!fileUrl) {
-            throw new Error('파일 URL을 받지 못했습니다.')
-          }
-
-          // 사진첩에 추가 (선택된 폴더 또는 루트)
-          const albumResponse = await apiClient.post(`/chat/album/${chatId}`, {
-            type: messageType,
-            fileUrl: fileUrl,
-            thumbnailUrl: thumbnailUrl,
-            fileName: file.name,
-            fileSize: file.size,
-            folderId: selectedFolderId,
-          })
-
-          console.log(`✅ [${i + 1}/${fileArray.length}] 사진첩에 추가 완료:`, albumResponse)
-        } catch (error) {
-          console.error(`❌ [${i + 1}/${fileArray.length}] 사진첩 업로드 실패:`, error)
-          // showToast(`${file.name} 업로드 실패`, 'error')
-        }
+      // 진행률 업데이트 함수
+      const updateProgress = () => {
+        setUploadProgress({ 
+          current: completedCount, 
+          total: validFiles.length, 
+          success: successCount, 
+          failed: failCount 
+        })
       }
 
-      showToast(`${fileArray.length}개 파일을 사진첩에 추가했습니다`, 'success')
+      // 파일을 청크로 나누기
+      const chunks: File[][] = []
+      for (let i = 0; i < validFiles.length; i += CONCURRENT_UPLOADS) {
+        chunks.push(validFiles.slice(i, i + CONCURRENT_UPLOADS))
+      }
+
+      // 각 청크를 순차적으로 처리 (청크 내에서는 병렬)
+      for (const chunk of chunks) {
+        const uploadPromises = chunk.map(async (file) => {
+          try {
+            const validation = validateFile(file)
+            if (!validation) {
+              throw new Error('파일 검증 실패')
+            }
+
+            // 파일 업로드
+            const result = await apiClient.uploadFile(file, currentUser.id, chatId)
+            
+            const messageType = validation.isImage ? 'image' : 'video'
+            const fileUrl = result.fileUrl || result.data?.fileUrl
+            const thumbnailUrl = result.thumbnailUrl || result.data?.thumbnailUrl
+            
+            if (!fileUrl) {
+              throw new Error('파일 URL을 받지 못했습니다.')
+            }
+
+            // 사진첩에 추가 (선택된 폴더 또는 루트)
+            await apiClient.post(`/chat/album/${chatId}`, {
+              type: messageType,
+              fileUrl: fileUrl,
+              thumbnailUrl: thumbnailUrl,
+              fileName: file.name,
+              fileSize: file.size,
+              folderId: selectedFolderId,
+            })
+
+            successCount++
+            console.log(`✅ [${completedCount + 1}/${validFiles.length}] ${file.name} 업로드 완료`)
+          } catch (error) {
+            failCount++
+            const errorMsg = error instanceof Error ? error.message : '알 수 없는 오류'
+            errors.push(`${file.name}: ${errorMsg}`)
+            console.error(`❌ [${completedCount + 1}/${validFiles.length}] ${file.name} 업로드 실패:`, error)
+          } finally {
+            completedCount++
+            updateProgress()
+          }
+        })
+
+        // 현재 청크의 모든 업로드가 완료될 때까지 대기
+        await Promise.allSettled(uploadPromises)
+      }
+
+      // 결과 메시지 표시
+      if (successCount > 0) {
+        const message = failCount > 0
+          ? `${successCount}개 파일 업로드 완료 (${failCount}개 실패)`
+          : `${successCount}개 파일을 사진첩에 추가했습니다`
+        showToast(message, failCount > 0 ? 'error' : 'success')
+      } else {
+        showToast('모든 파일 업로드에 실패했습니다.', 'error')
+      }
+
+      // 실패한 파일이 있으면 콘솔에 상세 정보 출력
+      if (errors.length > 0) {
+        console.error('❌ 업로드 실패 파일 목록:', errors)
+      }
       
       // 사진첩 새로고침
       await loadAlbum(selectedFolderId)
@@ -1340,7 +1524,7 @@ export default function ChatRoomPage() {
       showToast(`파일 업로드에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     } finally {
       setUploadingFile(false)
-      setUploadProgress({ current: 0, total: 0 })
+      setUploadProgress({ current: 0, total: 0, success: 0, failed: 0 })
     }
   }
 
@@ -1866,15 +2050,31 @@ export default function ChatRoomPage() {
       {/* 메시지 입력 */}
       <div className="bg-primary border-t border-divider px-4 py-3">
         {(uploadingFile || isPasting) && (
-          <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center space-x-2">
-            <span className="text-lg animate-spin">⏳</span>
-            <span className="text-sm text-blue-600 dark:text-blue-400">
-              {isPasting 
-                ? '클립보드 이미지 붙여넣기 중...'
-                : uploadProgress.total > 1 
-                ? `파일 업로드 중... (${uploadProgress.current}/${uploadProgress.total})`
-                : '파일 업로드 중...'}
-            </span>
+          <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center space-x-2">
+              <span className="text-lg animate-spin">⏳</span>
+              <span className="text-sm text-blue-600 dark:text-blue-400 flex-1">
+                {isPasting 
+                  ? '클립보드 이미지 붙여넣기 중...'
+                  : uploadProgress.total > 1 
+                  ? `파일 업로드 중... (${uploadProgress.current}/${uploadProgress.total})`
+                  : '파일 업로드 중...'}
+              </span>
+            </div>
+            {uploadingFile && uploadProgress.total > 1 && (
+              <div className="mt-2">
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                  <div 
+                    className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
+                <div className="mt-1 flex justify-between text-xs text-blue-600 dark:text-blue-400">
+                  <span>✅ 성공: {uploadProgress.success}</span>
+                  {uploadProgress.failed > 0 && <span className="text-red-600 dark:text-red-400">❌ 실패: {uploadProgress.failed}</span>}
+                </div>
+              </div>
+            )}
           </div>
         )}
         <div className="flex items-center space-x-3">
@@ -1904,14 +2104,14 @@ export default function ChatRoomPage() {
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder={(uploadingFile || isPasting) ? '파일 처리 중...' : t('chat.messagePlaceholder')}
+              placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
               className="pr-12"
-              disabled={uploadingFile || isPasting}
+              disabled={isPasting}
             />
             <Button
               variant="ghost"
               className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1"
-              disabled={uploadingFile || isPasting}
+              disabled={isPasting}
             >
               <span className="text-secondary text-lg">😊</span>
             </Button>
@@ -1930,9 +2130,9 @@ export default function ChatRoomPage() {
               e.preventDefault()
               handleSendMessage()
             }}
-            disabled={(!message.trim() && previewFiles.length === 0) || uploadingFile || isPasting}
+            disabled={(!message.trim() && previewFiles.length === 0) || isPasting}
             className={`p-3 rounded-full transition-all ${
-              (message.trim() || previewFiles.length > 0) && !uploadingFile && !isPasting
+              (message.trim() || previewFiles.length > 0) && !isPasting
                 ? 'bg-[#0064FF] text-white hover:bg-[#0052CC] active:scale-95'
                 : 'bg-secondary text-secondary cursor-not-allowed'
             }`}
@@ -1978,6 +2178,18 @@ export default function ChatRoomPage() {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {/* 선택 모드 버튼 */}
+                    <button
+                      onClick={toggleSelectionMode}
+                      className={`px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                        isSelectionMode 
+                          ? 'bg-red-500 text-white hover:bg-red-600' 
+                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {isSelectionMode ? '취소' : '선택'}
+                    </button>
+                    
                     {/* 사진첩용 파일 입력 */}
                     <input
                       ref={albumFileInputRef}
@@ -1989,16 +2201,15 @@ export default function ChatRoomPage() {
                     />
                     <button
                       onClick={() => albumFileInputRef.current?.click()}
-                      className="px-4 py-2 bg-[#0064FF] text-white rounded-lg hover:bg-[#0052CC] transition-colors flex items-center space-x-2"
+                      className="px-3 py-2 bg-[#007AFF] text-white rounded-lg hover:bg-[#0056CC] transition-all duration-200 text-sm font-medium"
                     >
-                      <span>➕</span>
-                      <span className="hidden sm:inline">사진 추가</span>
+                      추가
                     </button>
                     <button
                       onClick={() => setIsAlbumOpen(false)}
-                      className="p-2 hover:bg-secondary rounded-lg transition-colors"
+                      className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm font-medium text-gray-600 dark:text-gray-300"
                     >
-                      <span className="text-2xl text-secondary">✕</span>
+                      닫기
                     </button>
                   </div>
                 </div>
@@ -2027,6 +2238,60 @@ export default function ChatRoomPage() {
                   </button>
                 </div>
               </div>
+              
+              {/* 선택 모드 액션 바 */}
+              {isSelectionMode && (
+                <div className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-t border-red-200 dark:border-red-800 px-6 py-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2">
+                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                        <span className="text-sm font-medium text-red-700 dark:text-red-300">
+                          {selectedPhotos.size}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={selectAllPhotos}
+                          className="px-3 py-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 text-sm font-medium"
+                        >
+                          전체선택
+                        </button>
+                        <button
+                          onClick={clearSelection}
+                          className="px-3 py-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 text-sm font-medium"
+                        >
+                          선택해제
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={downloadSelectedPhotos}
+                        disabled={selectedPhotos.size === 0 || isDownloading}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          selectedPhotos.size > 0 && !isDownloading
+                            ? 'bg-blue-500 text-white hover:bg-blue-600'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        {isDownloading ? '다운로드 중...' : '다운로드'}
+                      </button>
+                      <button
+                        onClick={deleteSelectedPhotos}
+                        disabled={selectedPhotos.size === 0}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                          selectedPhotos.size > 0
+                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               {/* 본문 */}
               <div className="flex-1 flex overflow-hidden">
@@ -2125,9 +2390,38 @@ export default function ChatRoomPage() {
                       return (
                         <div
                           key={photo.id}
-                          className="aspect-square bg-secondary rounded-lg overflow-hidden cursor-pointer hover:opacity-90 transition-opacity group relative"
-                          onClick={() => window.open(fileUrl, '_blank')}
+                          className={`aspect-square bg-secondary rounded-lg overflow-hidden transition-all duration-200 group relative ${
+                            isSelectionMode 
+                              ? 'cursor-pointer hover:scale-[1.02]' 
+                              : 'cursor-pointer hover:opacity-90'
+                          } ${
+                            selectedPhotos.has(photo.id) 
+                              ? 'ring-4 ring-[#007AFF] ring-opacity-60 shadow-xl scale-[1.02]' 
+                              : 'hover:shadow-lg'
+                          }`}
+                          onClick={() => {
+                            if (isSelectionMode) {
+                              togglePhotoSelection(photo.id)
+                            } else {
+                              window.open(fileUrl, '_blank')
+                            }
+                          }}
                         >
+                          {/* 선택 체크박스 */}
+                          {isSelectionMode && (
+                            <div className="absolute top-3 left-3 z-10">
+                              <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all duration-200 shadow-lg ${
+                                selectedPhotos.has(photo.id)
+                                  ? 'bg-[#007AFF] border-[#007AFF]'
+                                  : 'bg-white/90 dark:bg-gray-800/90 border-gray-300 dark:border-gray-600'
+                              }`}>
+                                {selectedPhotos.has(photo.id) && (
+                                  <span className="text-white text-sm font-bold">✓</span>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                          
                           {photo.type === 'image' ? (
                             <img
                               src={thumbnailUrl}
