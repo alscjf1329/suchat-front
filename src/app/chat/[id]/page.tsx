@@ -9,6 +9,7 @@ import Toast, { ToastType } from '@/components/ui/Toast'
 import { apiClient } from '@/lib/api'
 import socketClient, { Message as SocketMessage, ChatRoom } from '@/lib/socket'
 import { clearChatNotifications } from '@/lib/push'
+import { detectDeviceType } from '@/lib/device'
 
 export default function ChatRoomPage() {
   const { t } = useTranslation()
@@ -19,8 +20,9 @@ export default function ChatRoomPage() {
   const messagesContainerRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const albumFileInputRef = useRef<HTMLInputElement>(null)
-  const messageInputRef = useRef<HTMLInputElement>(null)
+  const messageInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const [message, setMessage] = useState('')
+  const [isMobile, setIsMobile] = useState(false)
   const [messages, setMessages] = useState<SocketMessage[]>([])
   const [roomInfo, setRoomInfo] = useState<ChatRoom | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -197,6 +199,11 @@ export default function ChatRoomPage() {
       router.push('/chat')
     }
   }, [currentUser, chatId, router])
+
+  // 모바일 감지
+  useEffect(() => {
+    setIsMobile(detectDeviceType() === 'mobile')
+  }, [])
 
   useEffect(() => {
     console.log('🔍 [ChatRoom] useEffect 실행 - authLoading:', authLoading, 'currentUser:', currentUser?.email || 'null', 'chatId:', chatId)
@@ -792,8 +799,14 @@ export default function ChatRoomPage() {
     }
   }, [message, previewFiles, currentUser, chatId, showToast])
 
-  // Enter 키로 메시지 전송
-  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+  // Enter 키로 메시지 전송 (데스크톱만, 모바일은 줄바꿈)
+  const handleKeyPress = useCallback((e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    // 모바일에서는 Enter 키로 전송하지 않음 (줄바꿈만)
+    if (isMobile) {
+      return
+    }
+    
+    // 데스크톱: Enter로 전송, Shift+Enter로 줄바꿈
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       e.stopPropagation()
@@ -803,7 +816,7 @@ export default function ChatRoomPage() {
         e.currentTarget?.focus()
       }, 10)
     }
-  }, [handleSendMessage])
+  }, [handleSendMessage, isMobile])
 
   // 파일 선택 트리거
   const handleFileClick = useCallback(() => {
@@ -2098,16 +2111,40 @@ export default function ChatRoomPage() {
             </span>
           </Button>
           <div className="flex-1 relative">
-            <Input
-              ref={messageInputRef}
-              type="text"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
-              className="pr-12"
-              disabled={isPasting}
-            />
+            {isMobile ? (
+              <textarea
+                ref={messageInputRef as React.RefObject<HTMLTextAreaElement>}
+                value={message}
+                onChange={(e) => {
+                  setMessage(e.target.value)
+                  // 높이 자동 조절
+                  const target = e.target
+                  target.style.height = 'auto'
+                  target.style.height = `${Math.min(target.scrollHeight, 120)}px`
+                }}
+                onKeyPress={handleKeyPress}
+                placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
+                className="w-full px-4 py-3 pr-12 bg-primary border border-divider rounded-lg text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[#0064FF] resize-none overflow-y-auto"
+                disabled={isPasting}
+                rows={1}
+                style={{
+                  minHeight: '48px',
+                  maxHeight: '120px',
+                  height: '48px',
+                }}
+              />
+            ) : (
+              <Input
+                ref={messageInputRef as React.RefObject<HTMLInputElement>}
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
+                className="pr-12"
+                disabled={isPasting}
+              />
+            )}
             <Button
               variant="ghost"
               className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1"
