@@ -258,6 +258,15 @@ export async function sendSubscriptionToServer(
   try {
     const subscriptionJSON = subscription.toJSON();
     
+    // 기기 정보 가져오기
+    const { getDeviceInfo } = await import('./device');
+    const deviceInfo = getDeviceInfo();
+    
+    // localStorage에서 기기 이름 확인 (사용자가 설정한 이름이 있으면 사용)
+    const savedDeviceName = typeof window !== 'undefined' 
+      ? localStorage.getItem(`device_name_${deviceInfo.deviceId}`)
+      : null;
+    
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscribe`, {
       method: 'POST',
       headers: {
@@ -268,7 +277,10 @@ export async function sendSubscriptionToServer(
         endpoint: subscriptionJSON.endpoint,
         p256dh: subscriptionJSON.keys?.p256dh,
         auth: subscriptionJSON.keys?.auth,
-        userAgent: navigator.userAgent,
+        deviceId: deviceInfo.deviceId,
+        deviceType: deviceInfo.platform,
+        deviceName: savedDeviceName || deviceInfo.deviceName,
+        userAgent: deviceInfo.userAgent,
       }),
     });
 
@@ -311,7 +323,9 @@ export async function removeSubscriptionFromServer(
   token: string
 ): Promise<boolean> {
   try {
-    const subscriptionJSON = subscription.toJSON();
+    // 기기 정보 가져오기
+    const { getDeviceInfo } = await import('./device');
+    const deviceInfo = getDeviceInfo();
     
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/unsubscribe`, {
       method: 'DELETE',
@@ -320,7 +334,7 @@ export async function removeSubscriptionFromServer(
         'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({
-        endpoint: subscriptionJSON.endpoint,
+        deviceId: deviceInfo.deviceId,
       }),
     });
 
@@ -467,6 +481,84 @@ export async function clearAllNotifications(): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('❌ Failed to clear all notifications:', error);
+    return false;
+  }
+}
+
+/**
+ * 기기 목록 조회
+ */
+export async function getDeviceList(token: string): Promise<any[]> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscriptions`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to get device list');
+    }
+
+    const data = await response.json();
+    return data.subscriptions || [];
+  } catch (error) {
+    console.error('❌ Failed to get device list:', error);
+    return [];
+  }
+}
+
+/**
+ * 기기 이름 업데이트
+ */
+export async function updateDeviceName(
+  token: string,
+  deviceId: string,
+  deviceName: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscriptions/${deviceId}/name`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ deviceName }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update device name');
+    }
+
+    console.log('✅ Device name updated');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to update device name:', error);
+    return false;
+  }
+}
+
+/**
+ * 특정 기기 로그아웃 (구독 해제)
+ */
+export async function logoutDevice(token: string, deviceId: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscriptions/${deviceId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to logout device');
+    }
+
+    console.log('✅ Device logged out');
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to logout device:', error);
     return false;
   }
 }

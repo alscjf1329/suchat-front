@@ -13,8 +13,12 @@ import {
   getPushSubscription,
   unsubscribeFromPush,
   removeSubscriptionFromServer,
-  sendTestPush
+  sendTestPush,
+  getDeviceList,
+  updateDeviceName,
+  logoutDevice
 } from '@/lib/push'
+import { getDeviceInfo, getOrCreateDeviceId } from '@/lib/device'
 
 interface SettingSection {
   id: string
@@ -41,6 +45,10 @@ export default function SettingsPage() {
   const [pushEnabled, setPushEnabled] = useState(false)
   const [isCheckingPush, setIsCheckingPush] = useState(true)
   const [toast, setToast] = useState<{ message: string; type: ToastType } | null>(null)
+  const [devices, setDevices] = useState<any[]>([])
+  const [isLoadingDevices, setIsLoadingDevices] = useState(false)
+  const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null)
+  const [editingDeviceName, setEditingDeviceName] = useState('')
 
   const showToast = (message: string, type: ToastType = 'info') => {
     setToast({ message, type })
@@ -49,7 +57,88 @@ export default function SettingsPage() {
   // 푸시 알림 상태 확인
   useEffect(() => {
     checkPushStatus()
+    loadDevices()
   }, [])
+
+  const loadDevices = async () => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) return
+
+    try {
+      setIsLoadingDevices(true)
+      const deviceList = await getDeviceList(token)
+      setDevices(deviceList)
+    } catch (error) {
+      console.error('기기 목록 로드 실패:', error)
+    } finally {
+      setIsLoadingDevices(false)
+    }
+  }
+
+  const handleEditDeviceName = (device: any) => {
+    setEditingDeviceId(device.deviceId)
+    setEditingDeviceName(device.deviceName || '')
+  }
+
+  const handleSaveDeviceName = async (deviceId: string) => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      showToast('로그인이 필요합니다', 'error')
+      return
+    }
+
+    if (!editingDeviceName.trim()) {
+      showToast('기기 이름을 입력해주세요', 'error')
+      return
+    }
+
+    try {
+      const success = await updateDeviceName(token, deviceId, editingDeviceName.trim())
+      if (success) {
+        // localStorage에도 저장 (다음 구독 시 사용)
+        localStorage.setItem(`device_name_${deviceId}`, editingDeviceName.trim())
+        
+        showToast('기기 이름이 변경되었습니다', 'success')
+        setEditingDeviceId(null)
+        setEditingDeviceName('')
+        await loadDevices()
+      } else {
+        showToast('기기 이름 변경에 실패했습니다', 'error')
+      }
+    } catch (error) {
+      showToast('오류가 발생했습니다', 'error')
+    }
+  }
+
+  const handleLogoutDevice = async (deviceId: string) => {
+    const token = localStorage.getItem('accessToken')
+    if (!token) {
+      showToast('로그인이 필요합니다', 'error')
+      return
+    }
+
+    const currentDeviceId = getOrCreateDeviceId()
+    if (deviceId === currentDeviceId) {
+      showToast('현재 기기에서는 로그아웃할 수 없습니다', 'error')
+      return
+    }
+
+    if (!confirm('이 기기에서 로그아웃하시겠습니까?')) {
+      return
+    }
+
+    try {
+      const success = await logoutDevice(token, deviceId)
+      if (success) {
+        showToast('기기에서 로그아웃되었습니다', 'success')
+        await loadDevices()
+      } else {
+        showToast('기기 로그아웃에 실패했습니다', 'error')
+      }
+    } catch (error) {
+      showToast('오류가 발생했습니다', 'error')
+    }
+  }
 
   const checkPushStatus = async () => {
     try {
@@ -309,6 +398,12 @@ export default function SettingsPage() {
       ]
     },
     {
+      id: 'devices',
+      title: '기기 관리',
+      icon: '📱',
+      items: [] // 동적으로 렌더링
+    },
+    {
       id: 'account',
       title: t('settings.account'),
       icon: '⚙',
@@ -452,7 +547,126 @@ export default function SettingsPage() {
               {/* 섹션 내용 */}
               {expandedSection === section.id && (
                 <div className="border-t border-divider">
-                  {section.items.map((item) => renderSettingItem(section, item))}
+                  {section.id === 'devices' ? (
+                    // 기기 관리 섹션
+                    <div className="py-2">
+                      {isLoadingDevices ? (
+                        <div className="flex items-center justify-center py-8">
+                          <p className="text-secondary text-sm">기기 목록 불러오는 중...</p>
+                        </div>
+                      ) : devices.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8">
+                          <p className="text-secondary text-sm">등록된 기기가 없습니다</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 px-4">
+                          {devices.map((device) => {
+                            const currentDeviceId = getOrCreateDeviceId()
+                            const isCurrentDevice = device.deviceId === currentDeviceId
+                            const deviceTypeIcons: Record<string, string> = {
+                              ios: '🍎',
+                              android: '🤖',
+                              desktop: '💻',
+                              tablet: '📱',
+                            }
+                            const deviceTypeLabels: Record<string, string> = {
+                              ios: 'iOS',
+                              android: 'Android',
+                              desktop: '데스크톱',
+                              tablet: '태블릿',
+                            }
+
+                            return (
+                              <div
+                                key={device.deviceId}
+                                className="bg-secondary/30 rounded-lg p-4 border border-divider"
+                              >
+                                <div className="flex items-start justify-between mb-2">
+                                  <div className="flex items-center space-x-3 flex-1">
+                                    <span className="text-2xl">
+                                      {deviceTypeIcons[device.deviceType] || '📱'}
+                                    </span>
+                                    <div className="flex-1 min-w-0">
+                                      {editingDeviceId === device.deviceId ? (
+                                        <div className="flex items-center space-x-2">
+                                          <input
+                                            type="text"
+                                            value={editingDeviceName}
+                                            onChange={(e) => setEditingDeviceName(e.target.value)}
+                                            onKeyDown={(e) => {
+                                              if (e.key === 'Enter') {
+                                                handleSaveDeviceName(device.deviceId)
+                                              } else if (e.key === 'Escape') {
+                                                setEditingDeviceId(null)
+                                                setEditingDeviceName('')
+                                              }
+                                            }}
+                                            className="flex-1 px-2 py-1 bg-primary border border-divider rounded text-sm text-primary"
+                                            autoFocus
+                                          />
+                                          <button
+                                            onClick={() => handleSaveDeviceName(device.deviceId)}
+                                            className="px-3 py-1 bg-[#0064FF] text-white text-xs rounded hover:bg-[#0052CC]"
+                                          >
+                                            저장
+                                          </button>
+                                          <button
+                                            onClick={() => {
+                                              setEditingDeviceId(null)
+                                              setEditingDeviceName('')
+                                            }}
+                                            className="px-3 py-1 bg-gray-500 text-white text-xs rounded hover:bg-gray-600"
+                                          >
+                                            취소
+                                          </button>
+                                        </div>
+                                      ) : (
+                                        <div>
+                                          <div className="flex items-center space-x-2">
+                                            <span className="text-sm font-medium text-primary">
+                                              {device.deviceName || `${deviceTypeLabels[device.deviceType] || '기기'}`}
+                                            </span>
+                                            {isCurrentDevice && (
+                                              <span className="px-2 py-0.5 bg-[#0064FF] text-white text-xs rounded">
+                                                현재 기기
+                                              </span>
+                                            )}
+                                          </div>
+                                          <p className="text-xs text-secondary mt-1">
+                                            {deviceTypeLabels[device.deviceType] || '알 수 없음'} · {new Date(device.updatedAt).toLocaleDateString('ko-KR')}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {editingDeviceId !== device.deviceId && (
+                                    <div className="flex items-center space-x-2">
+                                      <button
+                                        onClick={() => handleEditDeviceName(device)}
+                                        className="px-2 py-1 text-xs text-secondary hover:text-primary"
+                                      >
+                                        ✏️
+                                      </button>
+                                      {!isCurrentDevice && (
+                                        <button
+                                          onClick={() => handleLogoutDevice(device.deviceId)}
+                                          className="px-2 py-1 text-xs text-red-500 hover:text-red-600"
+                                        >
+                                          로그아웃
+                                        </button>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    section.items.map((item) => renderSettingItem(section, item))
+                  )}
                 </div>
               )}
             </div>
