@@ -14,6 +14,9 @@ export interface SignInData {
   email: string;
   password: string;
   deviceType?: 'mobile' | 'desktop';
+  deviceId?: string;
+  deviceName?: string;
+  userAgent?: string;
 }
 
 export interface SignInResponse {

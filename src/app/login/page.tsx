@@ -6,7 +6,7 @@ import { FormField, Button, LanguageSwitcher, Toast, ToastType } from '@/compone
 import { useTranslation } from '@/contexts/I18nContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, SignInData } from '@/lib/api'
-import { detectDeviceType } from '@/lib/device'
+import { detectDeviceType, getDeviceInfo, detectDevicePlatform } from '@/lib/device'
 
 interface ToastState {
   show: boolean
@@ -37,12 +37,17 @@ export default function LoginPage() {
     
     try {
       const deviceType = detectDeviceType()
+      const deviceInfo = getDeviceInfo()
       console.log('📱 디바이스 타입:', deviceType, deviceType === 'mobile' ? '(24시간)' : '(2시간)')
+      console.log('📱 디바이스 정보:', deviceInfo)
       
       const signInData: SignInData = {
         email,
         password,
         deviceType,
+        deviceId: deviceInfo.deviceId,
+        deviceName: deviceInfo.deviceName,
+        userAgent: deviceInfo.userAgent,
       }
 
       const response = await apiClient.signIn(signInData)

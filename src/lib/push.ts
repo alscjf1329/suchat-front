@@ -490,7 +490,7 @@ export async function clearAllNotifications(): Promise<boolean> {
  */
 export async function getDeviceList(token: string): Promise<any[]> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscriptions`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/devices`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -502,7 +502,7 @@ export async function getDeviceList(token: string): Promise<any[]> {
     }
 
     const data = await response.json();
-    return data.subscriptions || [];
+    return data.devices || [];
   } catch (error) {
     console.error('❌ Failed to get device list:', error);
     return [];
@@ -518,7 +518,7 @@ export async function updateDeviceName(
   deviceName: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscriptions/${deviceId}/name`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/devices/${deviceId}/name`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -544,7 +544,7 @@ export async function updateDeviceName(
  */
 export async function logoutDevice(token: string, deviceId: string): Promise<boolean> {
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscriptions/${deviceId}`, {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/devices/${deviceId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

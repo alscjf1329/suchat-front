@@ -70,10 +70,14 @@ export default function SettingsPage() {
       console.log('📱 기기 목록 로드:', {
         count: deviceList.length,
         devices: deviceList.map(d => ({
+          id: d.id,
           deviceId: d.deviceId,
           deviceName: d.deviceName,
           deviceType: d.deviceType,
+          userAgent: d.userAgent,
           isActive: d.isActive,
+          lastLoginAt: d.lastLoginAt,
+          createdAt: d.createdAt,
           updatedAt: d.updatedAt
         }))
       })
