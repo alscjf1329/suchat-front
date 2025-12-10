@@ -1882,7 +1882,10 @@ export default function ChatRoomPage() {
         className={`flex ${isMyMessage ? 'justify-end' : 'justify-start'} mb-4`}
       >
         <div
-          className={`max-w-xs lg:max-w-md px-4 py-2 rounded-2xl ${
+          className={`${msg.type === 'image' || msg.type === 'images' || msg.type === 'video' 
+            ? 'max-w-[60%] md:max-w-[400px]' 
+            : 'max-w-xs lg:max-w-md'
+          } px-4 py-2 rounded-2xl ${
             isMyMessage
               ? msg.isFailed
                 ? 'bg-red-500 text-white rounded-br-md opacity-70'
@@ -1897,7 +1900,7 @@ export default function ChatRoomPage() {
               <img 
                 src={fileUrl} 
                 alt={msg.fileName || msg.content}
-                className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity"
+                className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity object-contain"
                 onClick={() => window.open(fileUrl, '_blank')}
               />
               {/* 텍스트가 있을 때만 표시 (파일명은 숨김) */}
