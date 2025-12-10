@@ -575,12 +575,36 @@ export default function ChatRoomPage() {
     document.addEventListener('resume', handleResume)
     document.addEventListener('pause', handlePause)
     
-    // 클립보드 붙여넣기 이벤트 (이미지 지원) - capture 모드로 중복 방지
+    // 클립보드 붙여넣기 이벤트 (모든 파일 타입 지원)
     // 메시지 입력창에만 적용하여 중복 방지
+    const handlePasteEvent = (e: Event) => {
+      // 입력창이 포커스되어 있을 때만 처리
+      const activeElement = document.activeElement
+      const messageInput = messageInputRef.current
+      
+      if (activeElement === messageInput || (messageInput && messageInput.contains(activeElement as Node))) {
+        handleClipboardPaste(e)
+      }
+    }
+    
+    // 입력창에 이벤트 리스너 등록
     const messageInput = messageInputRef.current
     if (messageInput) {
-      messageInput.addEventListener('paste', handleClipboardPaste, { capture: true })
+      messageInput.addEventListener('paste', handlePasteEvent, { capture: true })
+      console.log('✅ 클립보드 붙여넣기 이벤트 리스너 등록됨')
+    } else {
+      console.log('⚠️ 메시지 입력창이 없어서 클립보드 이벤트 리스너를 등록할 수 없음')
     }
+    
+    // 입력창이 나중에 생성될 수 있으므로 주기적으로 확인
+    const checkInputInterval = setInterval(() => {
+      const messageInput = messageInputRef.current
+      if (messageInput && !messageInput.hasAttribute('data-paste-listener')) {
+        messageInput.addEventListener('paste', handlePasteEvent, { capture: true })
+        messageInput.setAttribute('data-paste-listener', 'true')
+        console.log('✅ 클립보드 붙여넣기 이벤트 리스너 재등록됨')
+      }
+    }, 1000)
     
     // Service Worker 메시지
     if ('serviceWorker' in navigator) {
@@ -637,10 +661,16 @@ export default function ChatRoomPage() {
       document.removeEventListener('resume', handleResume)
       document.removeEventListener('pause', handlePause)
       
-      // 클립보드 붙여넣기 이벤트 제거 (메시지 입력창에서)
+      // 클립보드 붙여넣기 이벤트 제거
       const messageInput = messageInputRef.current
       if (messageInput) {
-        messageInput.removeEventListener('paste', handleClipboardPaste, { capture: true })
+        messageInput.removeEventListener('paste', handlePasteEvent, { capture: true })
+        messageInput.removeAttribute('data-paste-listener')
+      }
+      
+      // 체크 인터벌 제거
+      if (checkInputInterval) {
+        clearInterval(checkInputInterval)
       }
       
       if ('serviceWorker' in navigator) {
@@ -1265,9 +1295,11 @@ export default function ChatRoomPage() {
     }
   }, [validateFile, compressImage, showToast])
 
-  // 클립보드에서 이미지 붙여넣기 처리
+  // 클립보드에서 파일 붙여넣기 처리 (모든 파일 타입 지원)
   const handleClipboardPaste = async (e: Event) => {
     const clipboardEvent = e as ClipboardEvent
+    
+    console.log('📋 클립보드 붙여넣기 이벤트 발생')
     
     // 디바운스: 짧은 시간 내 중복 실행 방지
     if (pasteTimeoutRef.current) {
@@ -1286,31 +1318,52 @@ export default function ChatRoomPage() {
       return
     }
 
-    // 디바운스 타이머 설정 (500ms)
-    pasteTimeoutRef.current = setTimeout(() => {
-      pasteTimeoutRef.current = null
-    }, 500)
-
     const items = clipboardEvent.clipboardData?.items
-    if (!items) {
+    if (!items || items.length === 0) {
       console.log('📋 클립보드에 아이템 없음')
       return
     }
 
-    const imageItems: DataTransferItem[] = []
+    console.log(`📋 클립보드 아이템 개수: ${items.length}`)
     
-    // 클립보드에서 이미지 아이템 찾기
+    // 모든 아이템 로깅
     for (let i = 0; i < items.length; i++) {
       const item = items[i]
-      if (item.type.startsWith('image/')) {
-        imageItems.push(item)
-        console.log(`📷 클립보드 이미지 발견: ${item.type}`)
+      console.log(`📋 아이템 ${i}: kind=${item.kind}, type=${item.type}`)
+    }
+
+    const fileItems: DataTransferItem[] = []
+    
+    // 클립보드에서 모든 파일 타입 찾기
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const itemType = item.type
+      const itemKind = item.kind
+      
+      console.log(`🔍 검사 중: kind=${itemKind}, type=${itemType}`)
+      
+      // 파일 타입인지 확인
+      if (itemKind === 'file') {
+        fileItems.push(item)
+        console.log(`✅ 파일 발견: ${itemType}`)
+      } else if (itemType.startsWith('image/')) {
+        fileItems.push(item)
+        console.log(`✅ 이미지 발견: ${itemType}`)
+      } else if (itemType.startsWith('video/')) {
+        fileItems.push(item)
+        console.log(`✅ 비디오 발견: ${itemType}`)
+      } else if (itemType.startsWith('audio/')) {
+        fileItems.push(item)
+        console.log(`✅ 오디오 발견: ${itemType}`)
+      } else if (itemType.includes('application/') && itemType !== 'application/x-moz-file') {
+        fileItems.push(item)
+        console.log(`✅ 애플리케이션 파일 발견: ${itemType}`)
       }
     }
 
-    if (imageItems.length === 0) {
-      console.log('📋 클립보드에 이미지 없음')
-      return
+    if (fileItems.length === 0) {
+      console.log('📋 클립보드에 파일 없음 (텍스트는 그대로 입력)')
+      return // 텍스트는 일반 입력으로 처리
     }
 
     // 이벤트 전파 중단
@@ -1318,41 +1371,77 @@ export default function ChatRoomPage() {
     clipboardEvent.stopPropagation()
     clipboardEvent.stopImmediatePropagation()
 
-    console.log(`📋 클립보드 붙여넣기 시작: ${imageItems.length}개 이미지`)
+    // 디바운스 타이머 설정 (500ms)
+    pasteTimeoutRef.current = setTimeout(() => {
+      pasteTimeoutRef.current = null
+    }, 500)
+
+    console.log(`📋 클립보드 붙여넣기 시작: ${fileItems.length}개 파일`)
     setIsPasting(true)
 
     try {
       const files: File[] = []
       
-      // 클립보드 이미지를 File 객체로 변환
-      for (const item of imageItems) {
-        const file = item.getAsFile()
-        if (file) {
-          // 파일명 생성 (클립보드 이미지는 이름이 없으므로)
-          const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-          const extension = file.type.split('/')[1] || 'png'
-          const fileName = `clipboard-${timestamp}.${extension}`
-          
-          // 새로운 File 객체 생성 (이름 포함)
-          const namedFile = new File([file], fileName, { type: file.type })
-          files.push(namedFile)
-          console.log(`📁 파일 생성: ${fileName} (${file.size} bytes)`)
+      // 클립보드 파일을 File 객체로 변환
+      for (const item of fileItems) {
+        try {
+          const file = item.getAsFile()
+          if (file) {
+            // 파일명 생성
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+            const itemType = item.type
+            
+            // 파일 확장자 추출
+            let extension = 'bin'
+            if (itemType.startsWith('image/')) {
+              extension = itemType.split('/')[1] || 'png'
+            } else if (itemType.startsWith('video/')) {
+              extension = itemType.split('/')[1] || 'mp4'
+            } else if (itemType.startsWith('audio/')) {
+              extension = itemType.split('/')[1] || 'mp3'
+            } else if (itemType.includes('application/')) {
+              // MIME 타입에서 확장자 추출 시도
+              const mimeToExt: { [key: string]: string } = {
+                'application/pdf': 'pdf',
+                'application/zip': 'zip',
+                'application/json': 'json',
+                'application/xml': 'xml',
+                'application/msword': 'doc',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
+                'application/vnd.ms-excel': 'xls',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
+              }
+              extension = mimeToExt[itemType] || 'bin'
+            }
+            
+            const fileName = file.name || `clipboard-${timestamp}.${extension}`
+            
+            // 새로운 File 객체 생성 (이름 포함)
+            const namedFile = new File([file], fileName, { type: file.type })
+            files.push(namedFile)
+            console.log(`✅ 파일 생성 성공: ${fileName} (${file.size} bytes, ${file.type})`)
+          } else {
+            console.log(`⚠️ 파일 변환 실패: ${item.type}`)
+          }
+        } catch (error) {
+          console.error(`❌ 파일 처리 중 오류: ${item.type}`, error)
         }
       }
 
       if (files.length === 0) {
         console.log('❌ 변환된 파일 없음')
+        setIsPasting(false)
         return
       }
 
-      console.log(`📋 클립보드에서 ${files.length}개 이미지 붙여넣기`)
+      console.log(`📋 클립보드에서 ${files.length}개 파일 붙여넣기`)
 
-      // 이미지 압축 후 미리보기에 추가
+      // 파일을 미리보기에 추가 (이미지는 자동 압축)
       await addToPreview(files)
 
     } catch (error) {
       console.error('❌ 클립보드 붙여넣기 실패:', error)
-      // showToast('클립보드 이미지 붙여넣기에 실패했습니다', 'error')
+      showToast('클립보드 파일 붙여넣기에 실패했습니다', 'error')
     } finally {
       setIsPasting(false)
       console.log('✅ 클립보드 붙여넣기 완료')
@@ -2135,11 +2224,10 @@ export default function ChatRoomPage() {
       )}
 
       {/* 메시지 입력 - 고정 */}
-      {!isMenuOpen && (
-        <div 
-          ref={inputContainerRef}
-          className="bg-primary border-t border-divider px-2 md:px-4 py-2 md:py-3 flex-shrink-0"
-        >
+      <div 
+        ref={inputContainerRef}
+        className={`bg-primary border-t border-divider px-2 md:px-4 py-2 md:py-3 flex-shrink-0 ${isMenuOpen ? 'hidden' : ''}`}
+      >
         {(uploadingFile || isPasting) && (
           <div className="mb-1.5 md:mb-2 px-2 md:px-3 py-1.5 md:py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div className="flex items-center space-x-1.5 md:space-x-2">
@@ -2257,8 +2345,7 @@ export default function ChatRoomPage() {
             <span className="text-base md:text-lg">↑</span>
           </button>
         </div>
-        </div>
-      )}
+      </div>
 
       {/* Toast 알림 */}
       {toast && (
