@@ -650,6 +650,11 @@ export default function SettingsPage() {
                                           </div>
                                           <p className="text-xs text-secondary mt-1">
                                             {deviceTypeLabels[device.deviceType] || '알 수 없음'} · {new Date(device.updatedAt).toLocaleDateString('ko-KR')}
+                                            {device.isActive === false && (
+                                              <span className="ml-2 px-1.5 py-0.5 bg-gray-500 text-white text-[10px] rounded">
+                                                비활성
+                                              </span>
+                                            )}
                                           </p>
                                         </div>
                                       )}
