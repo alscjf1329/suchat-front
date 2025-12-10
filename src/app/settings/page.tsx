@@ -67,6 +67,16 @@ export default function SettingsPage() {
     try {
       setIsLoadingDevices(true)
       const deviceList = await getDeviceList(token)
+      console.log('📱 기기 목록 로드:', {
+        count: deviceList.length,
+        devices: deviceList.map(d => ({
+          deviceId: d.deviceId,
+          deviceName: d.deviceName,
+          deviceType: d.deviceType,
+          isActive: d.isActive,
+          updatedAt: d.updatedAt
+        }))
+      })
       setDevices(deviceList)
     } catch (error) {
       console.error('기기 목록 로드 실패:', error)
