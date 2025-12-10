@@ -1987,14 +1987,14 @@ export default function ChatRoomPage() {
 
       {/* 미리보기 영역 */}
       {isPreviewMode && previewFiles.length > 0 && (
-        <div className="bg-secondary/30 border-t border-divider px-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-primary">
+        <div className="bg-secondary/30 border-t border-divider px-2 md:px-4 py-2 md:py-3">
+          <div className="flex items-center justify-between mb-1.5 md:mb-2">
+            <h3 className="text-xs md:text-sm font-medium text-primary">
               전송할 파일 ({previewFiles.length}개)
             </h3>
             <button
               onClick={clearPreview}
-              className="px-3 py-1.5 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors"
+              className="px-2 md:px-3 py-1 md:py-1.5 bg-gray-500 text-white text-xs md:text-sm rounded-lg hover:bg-gray-600 transition-colors"
             >
               취소
             </button>
@@ -2008,7 +2008,7 @@ export default function ChatRoomPage() {
           </div> */}
           
            {/* 미리보기 그리드 (성능 최적화) */}
-           <div className="grid grid-cols-4 gap-2">
+           <div className="grid grid-cols-4 gap-1.5 md:gap-2">
              {previewFiles.map((file, index) => {
                const validation = validateFile(file)
                if (!validation) return null
@@ -2043,15 +2043,15 @@ export default function ChatRoomPage() {
                    {/* 삭제 버튼 */}
                    <button
                      onClick={() => removePreviewFile(index)}
-                     className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition-opacity"
+                     className="absolute top-0.5 md:top-1 right-0.5 md:right-1 bg-red-500 text-white rounded-full w-5 h-5 md:w-6 md:h-6 flex items-center justify-center text-[10px] md:text-xs font-bold opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity"
                    >
                      ✕
                    </button>
                    
                    {/* 파일 정보 */}
-                   <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-xs p-1">
+                   <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[9px] md:text-xs p-0.5 md:p-1">
                      <div className="truncate">{file.name}</div>
-                     <div className="text-xs opacity-75">
+                     <div className="text-[8px] md:text-xs opacity-75">
                        {(file.size / 1024 / 1024).toFixed(1)}MB
                      </div>
                    </div>
@@ -2063,12 +2063,12 @@ export default function ChatRoomPage() {
       )}
 
       {/* 메시지 입력 */}
-      <div className="bg-primary border-t border-divider px-4 py-3">
+      <div className="bg-primary border-t border-divider px-2 md:px-4 py-2 md:py-3">
         {(uploadingFile || isPasting) && (
-          <div className="mb-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <span className="text-lg animate-spin">⏳</span>
-              <span className="text-sm text-blue-600 dark:text-blue-400 flex-1">
+          <div className="mb-1.5 md:mb-2 px-2 md:px-3 py-1.5 md:py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+            <div className="flex items-center space-x-1.5 md:space-x-2">
+              <span className="text-base md:text-lg animate-spin">⏳</span>
+              <span className="text-xs md:text-sm text-blue-600 dark:text-blue-400 flex-1">
                 {isPasting 
                   ? '클립보드 이미지 붙여넣기 중...'
                   : uploadProgress.total > 1 
@@ -2077,14 +2077,14 @@ export default function ChatRoomPage() {
               </span>
             </div>
             {uploadingFile && uploadProgress.total > 1 && (
-              <div className="mt-2">
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+              <div className="mt-1.5 md:mt-2">
+                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 md:h-2 overflow-hidden">
                   <div 
-                    className="bg-blue-600 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
+                    className="bg-blue-600 dark:bg-blue-400 h-1.5 md:h-2 rounded-full transition-all duration-300"
                     style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
                   />
                 </div>
-                <div className="mt-1 flex justify-between text-xs text-blue-600 dark:text-blue-400">
+                <div className="mt-1 flex justify-between text-[10px] md:text-xs text-blue-600 dark:text-blue-400">
                   <span>✅ 성공: {uploadProgress.success}</span>
                   {uploadProgress.failed > 0 && <span className="text-red-600 dark:text-red-400">❌ 실패: {uploadProgress.failed}</span>}
                 </div>
@@ -2092,7 +2092,7 @@ export default function ChatRoomPage() {
             )}
           </div>
         )}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-1.5 md:space-x-3">
           {/* 파일 업로드 버튼 (multiple 지원) */}
           <input
             ref={fileInputRef}
@@ -2104,15 +2104,15 @@ export default function ChatRoomPage() {
           />
           <Button 
             variant="ghost" 
-            className="p-2"
+            className="p-1.5 md:p-2 flex-shrink-0"
             onClick={handleFileClick}
             disabled={uploadingFile || isPasting}
           >
-            <span className={`text-lg ${(uploadingFile || isPasting) ? 'text-gray-400' : 'text-secondary'}`}>
+            <span className={`text-base md:text-lg ${(uploadingFile || isPasting) ? 'text-gray-400' : 'text-secondary'}`}>
               {(uploadingFile || isPasting) ? '⏳' : '📎'}
             </span>
           </Button>
-          <div className="flex-1 relative">
+          <div className="flex-1 relative min-w-0">
             {isMobile ? (
               <textarea
                 ref={messageInputRef as React.RefObject<HTMLTextAreaElement>}
@@ -2126,13 +2126,13 @@ export default function ChatRoomPage() {
                 }}
                 onKeyPress={handleKeyPress}
                 placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
-                className="w-full px-4 py-3 pr-12 bg-primary border border-divider rounded-lg text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[#0064FF] resize-none overflow-y-auto"
+                className="w-full px-2.5 md:px-4 py-2 md:py-3 pr-8 md:pr-12 bg-primary border border-divider rounded-lg text-[14px] md:text-base text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[#0064FF] resize-none overflow-y-auto"
                 disabled={isPasting}
                 rows={1}
                 style={{
-                  minHeight: '48px',
+                  minHeight: '40px',
                   maxHeight: '120px',
-                  height: '48px',
+                  height: '40px',
                 }}
               />
             ) : (
@@ -2143,16 +2143,16 @@ export default function ChatRoomPage() {
                 onChange={(e) => setMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
-                className="pr-12"
+                className="pr-12 text-[11px] md:text-base"
                 disabled={isPasting}
               />
             )}
             <Button
               variant="ghost"
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1"
+              className="absolute right-1 md:right-2 top-1/2 transform -translate-y-1/2 p-0.5 md:p-1 flex-shrink-0"
               disabled={isPasting}
             >
-              <span className="text-secondary text-lg">😊</span>
+              <span className="text-secondary text-base md:text-lg">😊</span>
             </Button>
           </div>
           <button
@@ -2170,13 +2170,13 @@ export default function ChatRoomPage() {
               handleSendMessage()
             }}
             disabled={(!message.trim() && previewFiles.length === 0) || isPasting}
-            className={`p-3 rounded-full transition-all ${
+            className={`p-2 md:p-3 rounded-full transition-all flex-shrink-0 ${
               (message.trim() || previewFiles.length > 0) && !isPasting
                 ? 'bg-[#0064FF] text-white hover:bg-[#0052CC] active:scale-95'
                 : 'bg-secondary text-secondary cursor-not-allowed'
             }`}
           >
-            <span className="text-lg">↑</span>
+            <span className="text-base md:text-lg">↑</span>
           </button>
         </div>
       </div>
