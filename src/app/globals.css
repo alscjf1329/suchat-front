@@ -203,3 +203,28 @@ input[type="date"]::-webkit-date-and-time-value {
   animation: slideDown 0.2s ease-out;
 }
 
+/* PWA 키보드 처리 - iOS Safari 최적화 */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari에서 키보드가 올라올 때 뷰포트 높이 조정 */
+  @media (max-width: 768px) {
+    html {
+      height: 100%;
+      height: -webkit-fill-available;
+    }
+    
+    body {
+      min-height: 100%;
+      min-height: -webkit-fill-available;
+    }
+  }
+}
+
+/* 키보드가 올라올 때 부드러운 전환 */
+@media (max-width: 768px) {
+  /* 입력창이 키보드에 가려지지 않도록 */
+  input:focus,
+  textarea:focus {
+    scroll-margin-bottom: 20px;
+  }
+}
+

@@ -21,8 +21,10 @@ export default function ChatRoomPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const albumFileInputRef = useRef<HTMLInputElement>(null)
   const messageInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
+  const inputContainerRef = useRef<HTMLDivElement>(null)
   const [message, setMessage] = useState('')
   const [isMobile, setIsMobile] = useState(false)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
   const [messages, setMessages] = useState<SocketMessage[]>([])
   const [roomInfo, setRoomInfo] = useState<ChatRoom | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -204,6 +206,76 @@ export default function ChatRoomPage() {
   useEffect(() => {
     setIsMobile(detectDeviceType() === 'mobile')
   }, [])
+
+  // 키보드 처리 (PWA 최적화)
+  useEffect(() => {
+    if (!isMobile) return
+
+    const handleVisualViewportChange = () => {
+      if (window.visualViewport) {
+        const viewport = window.visualViewport
+        const windowHeight = window.innerHeight
+        const viewportHeight = viewport.height
+        const heightDiff = windowHeight - viewportHeight
+        
+        // 키보드가 올라온 경우
+        if (heightDiff > 50) {
+          setKeyboardHeight(heightDiff)
+        } else {
+          setKeyboardHeight(0)
+        }
+      }
+    }
+
+    // visualViewport API 지원 여부 확인
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleVisualViewportChange)
+      
+      return () => {
+        window.visualViewport?.removeEventListener('resize', handleVisualViewportChange)
+      }
+    }
+  }, [isMobile])
+
+  // 입력창 포커스 시 키보드 처리
+  const handleInputFocus = useCallback(() => {
+    if (!isMobile) return
+
+    // 키보드 애니메이션 대기 후 스크롤 조정
+    const adjustScroll = () => {
+      if (!messagesContainerRef.current) return
+
+      // 메시지 컨테이너만 맨 아래로 스크롤 (페이지 전체는 스크롤하지 않음)
+      if (window.visualViewport) {
+        // visualViewport API 사용
+        requestAnimationFrame(() => {
+          if (messagesContainerRef.current) {
+            // 메시지 컨테이너를 맨 아래로 스크롤하여 입력창이 보이도록
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          }
+        })
+      } else {
+        // fallback: 메시지 컨테이너만 스크롤
+        setTimeout(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight
+          }
+        }, 300)
+      }
+    }
+
+    // 키보드 애니메이션 대기 (iOS는 약 300ms, Android는 더 빠름)
+    setTimeout(adjustScroll, 300)
+    
+    // 추가 안전장치: visualViewport resize 이벤트로도 처리
+    if (window.visualViewport) {
+      const handleResize = () => {
+        adjustScroll()
+        window.visualViewport?.removeEventListener('resize', handleResize)
+      }
+      window.visualViewport.addEventListener('resize', handleResize)
+    }
+  }, [isMobile])
 
   useEffect(() => {
     console.log('🔍 [ChatRoom] useEffect 실행 - authLoading:', authLoading, 'currentUser:', currentUser?.email || 'null', 'chatId:', chatId)
@@ -1809,9 +1881,9 @@ export default function ChatRoomPage() {
   }, [currentUser?.id])
 
   return (
-    <div className="h-screen w-full bg-primary flex flex-col">
-      {/* 헤더 */}
-      <header className="bg-primary border-b border-divider px-4 h-16 flex items-center justify-between">
+    <div className="h-screen w-full bg-primary flex flex-col overflow-hidden">
+      {/* 헤더 - 고정 */}
+      <header className="sticky top-0 bg-primary border-b border-divider px-4 h-16 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"
@@ -1858,12 +1930,12 @@ export default function ChatRoomPage() {
               <>
                 {/* 배경 오버레이 */}
                 <div 
-                  className="fixed inset-0 bg-black/50 z-40 animate-fadeIn"
+                  className="fixed inset-0 bg-black/50 z-[100] animate-fadeIn"
                   onClick={() => setIsMenuOpen(false)}
                 />
                 
                 {/* 오른쪽에서 슬라이드되는 메뉴 */}
-                <div className="fixed right-0 top-0 h-full w-full md:w-1/2 bg-primary z-50 shadow-2xl animate-slideInRight flex flex-col">
+                <div className="fixed right-0 top-0 bottom-0 h-screen w-full md:w-1/2 bg-primary z-[100] shadow-2xl animate-slideInRight flex flex-col">
                   {/* 메뉴 헤더 */}
                   <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
                     <h2 className="text-lg font-semibold text-primary">메뉴</h2>
@@ -1946,7 +2018,7 @@ export default function ChatRoomPage() {
       <div 
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide"
+        className="flex-1 overflow-y-auto px-4 py-4 scrollbar-hide min-h-0"
       >
         {isLoading ? (
           <div className="flex items-center justify-center h-full">
@@ -2062,8 +2134,12 @@ export default function ChatRoomPage() {
         </div>
       )}
 
-      {/* 메시지 입력 */}
-      <div className="bg-primary border-t border-divider px-2 md:px-4 py-2 md:py-3">
+      {/* 메시지 입력 - 고정 */}
+      {!isMenuOpen && (
+        <div 
+          ref={inputContainerRef}
+          className="bg-primary border-t border-divider px-2 md:px-4 py-2 md:py-3 flex-shrink-0"
+        >
         {(uploadingFile || isPasting) && (
           <div className="mb-1.5 md:mb-2 px-2 md:px-3 py-1.5 md:py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
             <div className="flex items-center space-x-1.5 md:space-x-2">
@@ -2124,6 +2200,7 @@ export default function ChatRoomPage() {
                   target.style.height = 'auto'
                   target.style.height = `${Math.min(target.scrollHeight, 120)}px`
                 }}
+                onFocus={handleInputFocus}
                 onKeyPress={handleKeyPress}
                 placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
                 className="w-full px-2.5 md:px-4 py-2 md:py-3 pr-8 md:pr-12 bg-primary border border-divider rounded-lg text-[14px] md:text-base text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[#0064FF] resize-none overflow-y-auto"
@@ -2141,6 +2218,7 @@ export default function ChatRoomPage() {
                 type="text"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
+                onFocus={handleInputFocus}
                 onKeyPress={handleKeyPress}
                 placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
                 className="pr-12 text-[11px] md:text-base"
@@ -2179,7 +2257,8 @@ export default function ChatRoomPage() {
             <span className="text-base md:text-lg">↑</span>
           </button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Toast 알림 */}
       {toast && (

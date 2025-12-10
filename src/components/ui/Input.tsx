@@ -5,6 +5,7 @@ interface InputProps {
   value: string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void
+  onFocus?: (e: React.FocusEvent<HTMLInputElement>) => void
   placeholder?: string
   label?: string
   icon?: React.ReactNode
@@ -22,6 +23,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
     value,
     onChange,
     onKeyPress,
+    onFocus,
     placeholder,
     label,
     icon,
@@ -67,6 +69,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
           value={value}
           onChange={onChange}
           onKeyPress={onKeyPress}
+          onFocus={onFocus}
           placeholder={placeholder}
           required={required}
           disabled={disabled}
