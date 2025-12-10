@@ -528,7 +528,13 @@ export default function SettingsPage() {
       {/* 설정 목록 */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
         <div className="space-y-2 p-2">
-          {settingSections.map((section) => (
+          {settingSections.map((section) => {
+            // 기기 관리 섹션은 기기가 있을 때만 표시
+            if (section.id === 'devices' && devices.length === 0 && !isLoadingDevices) {
+              return null
+            }
+            
+            return (
             <div key={section.id} className="bg-primary border border-divider rounded-xl overflow-hidden">
               {/* 섹션 헤더 */}
               <button
@@ -670,7 +676,8 @@ export default function SettingsPage() {
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
