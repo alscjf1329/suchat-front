@@ -318,6 +318,7 @@ export async function sendSubscriptionToServer(
       console.error('❌ [sendSubscriptionToServer] 서버 응답 실패:', {
         status: response.status,
         statusText: response.statusText,
+        is500Error: response.status === 500,
         errorData,
         errorCode: errorData.errorCode,
         deviceId: deviceInfo.deviceId,
@@ -342,7 +343,8 @@ export async function sendSubscriptionToServer(
       
       // 서버에서 내려온 에러 코드와 메시지 사용
       const errorMessage = errorData.message || errorData.error || '알 수 없는 오류';
-      const errorCode = errorData.errorCode || 'UNKNOWN_ERROR';
+      const customErrorCode = errorData.errorCode || (response.status === 500 ? '09' : '10');
+      const originalErrorCode = errorData.originalErrorCode;
       const errorDetails = errorData.details;
       
       // 상세 사유가 있으면 메시지에 포함
@@ -351,16 +353,22 @@ export async function sendSubscriptionToServer(
         if (typeof errorDetails === 'string') {
           fullErrorMessage = `${errorMessage}\n상세: ${errorDetails}`;
         } else if (typeof errorDetails === 'object') {
-          const detailsStr = JSON.stringify(errorDetails, null, 2);
-          fullErrorMessage = `${errorMessage}\n상세: ${detailsStr}`;
+          const detailsStr = Object.entries(errorDetails)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(', ');
+          if (detailsStr) {
+            fullErrorMessage = `${errorMessage}\n상세: ${detailsStr}`;
+          }
         }
       }
       
       const error: any = new Error(fullErrorMessage);
-      error.code = errorCode;
+      error.code = customErrorCode; // 커스텀 숫자 코드 사용
+      error.originalErrorCode = originalErrorCode; // 원본 에러 코드 보관
       error.status = response.status;
       error.details = errorDetails;
       error.originalMessage = errorMessage;
+      error.is500Error = response.status === 500;
       
       throw error;
     }
@@ -369,54 +377,92 @@ export async function sendSubscriptionToServer(
     console.log('✅ [sendSubscriptionToServer] Push subscription registered:', result);
     return { success: true };
   } catch (error: any) {
+    // 네트워크 에러인지 서버 에러인지 구분
+    const isNetworkError = !error.status && error.message?.includes('fetch');
+    const is500Error = error.status === 500 || error.is500Error;
+    
     console.error('❌ [sendSubscriptionToServer] Failed to send subscription to server:', {
       error: error.message,
+      status: error.status,
+      is500Error,
+      isNetworkError,
+      errorCode: error.code,
       stack: error.stack,
       deviceId: deviceInfo.deviceId,
       deviceType: deviceInfo.platform,
     });
     
-    // 에러 메시지 추출
-    let errorMessage = '서버에 구독 정보를 전송하는데 실패했습니다.';
-    let statusCode: number | undefined = error.status;
-    let errorCode: string | undefined = error.code;
-    const errorDetails = error.details;
-    
-    // 원본 메시지가 있으면 우선 사용 (서버에서 내려온 상세 메시지)
-    if (error.originalMessage) {
-      errorMessage = error.originalMessage;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-    
-    // 에러 코드별 기본 메시지 매핑 (상세 메시지가 없을 때만 사용)
-    if (errorCode && !error.originalMessage) {
-      const errorMessages: Record<string, string> = {
-        'MISSING_REQUIRED_FIELDS': '필수 필드가 누락되었습니다. 브라우저를 새로고침해주세요.',
-        'PUSH_SUBSCRIPTION_FAILED': '푸시 구독 처리에 실패했습니다. 잠시 후 다시 시도해주세요.',
-        'SUBSCRIPTION_NOT_FOUND': '구독 정보를 찾을 수 없습니다. 다시 구독해주세요.',
-        'DATABASE_CONSTRAINT_VIOLATION': '데이터베이스 제약조건 위반이 발생했습니다. 잠시 후 다시 시도해주세요.',
-        'DATABASE_CONNECTION_FAILED': '데이터베이스 연결에 실패했습니다. 잠시 후 다시 시도해주세요.',
-        'DATABASE_ERROR': '데이터베이스 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
-        'DEVICE_NOT_FOUND': '기기 정보를 찾을 수 없습니다.',
-        'UNKNOWN_ERROR': '알 수 없는 오류가 발생했습니다.',
+    // 커스텀 에러 코드와 메시지 매핑
+    const getCustomErrorInfo = (code: string | undefined, isNetwork: boolean, is500: boolean): { code: string; message: string } => {
+      // 네트워크 에러
+      if (isNetwork) {
+        return { code: '01', message: '서버 연결 실패' };
+      }
+      
+      // 서버에서 내려온 커스텀 코드 사용 (이미 숫자 코드로 변환됨)
+      if (code && /^\d{2}$/.test(code)) {
+        const errorMessages: Record<string, string> = {
+          '01': '서버 연결 실패',
+          '02': '필수 필드 누락',
+          '03': '푸시 구독 처리 실패',
+          '04': '구독 정보를 찾을 수 없음',
+          '05': '데이터베이스 제약조건 위반',
+          '06': '데이터베이스 연결 실패',
+          '07': '데이터베이스 오류',
+          '08': '기기 정보를 찾을 수 없음',
+          '09': '서버 내부 오류',
+          '10': '알 수 없는 오류',
+        };
+        return { 
+          code, 
+          message: errorMessages[code] || '알 수 없는 오류' 
+        };
+      }
+      
+      // 기존 에러 코드를 숫자 코드로 변환
+      const errorCodeMap: Record<string, { code: string; message: string }> = {
+        'MISSING_REQUIRED_FIELDS': { code: '02', message: '필수 필드 누락' },
+        'PUSH_SUBSCRIPTION_FAILED': { code: '03', message: '푸시 구독 처리 실패' },
+        'SUBSCRIPTION_NOT_FOUND': { code: '04', message: '구독 정보를 찾을 수 없음' },
+        'DATABASE_CONSTRAINT_VIOLATION': { code: '05', message: '데이터베이스 제약조건 위반' },
+        'DATABASE_CONNECTION_FAILED': { code: '06', message: '데이터베이스 연결 실패' },
+        'DATABASE_ERROR': { code: '07', message: '데이터베이스 오류' },
+        'DEVICE_NOT_FOUND': { code: '08', message: '기기 정보를 찾을 수 없음' },
+        'INTERNAL_SERVER_ERROR': { code: '09', message: '서버 내부 오류' },
+        'NETWORK_ERROR': { code: '01', message: '서버 연결 실패' },
       };
       
-      if (errorMessages[errorCode]) {
-        errorMessage = errorMessages[errorCode];
-      } else {
-        // 알 수 없는 에러 코드인 경우 코드를 포함한 메시지
-        errorMessage = `[${errorCode}] ${errorMessage}`;
+      if (code && errorCodeMap[code]) {
+        return errorCodeMap[code];
       }
+      
+      // 500 에러인 경우
+      if (is500) {
+        return { code: '09', message: '서버 내부 오류' };
+      }
+      
+      // 기본값
+      return { code: '10', message: '알 수 없는 오류' };
+    };
+    
+    // 에러 정보 추출
+    const errorInfo = getCustomErrorInfo(error.code, isNetworkError, is500Error);
+    const customErrorCode = errorInfo.code;
+    let errorMessage = errorInfo.message;
+    
+    // 원본 메시지가 있으면 상세 사유로 추가
+    if (error.originalMessage && error.originalMessage !== errorMessage) {
+      errorMessage = `${errorMessage}: ${error.originalMessage}`;
+    } else if (error.message && error.message !== errorMessage && !error.message.includes('[')) {
+      errorMessage = `${errorMessage}: ${error.message}`;
     }
     
-    // 에러 코드가 있으면 메시지 앞에 추가
-    if (errorCode && !errorMessage.startsWith(`[${errorCode}]`)) {
-      errorMessage = `[${errorCode}] ${errorMessage}`;
-    }
+    // 최종 메시지 형식: [코드] 메시지
+    const finalMessage = `[${customErrorCode}] ${errorMessage}`;
     
     // HTTP 상태 코드별 메시지 (에러 코드가 없는 경우)
-    if (!errorCode && statusCode) {
+    const statusCode = error.status;
+    if (!customErrorCode && statusCode) {
       if (statusCode === 400) {
         errorMessage = '잘못된 요청입니다. 구독 정보를 확인해주세요.';
       } else if (statusCode === 401) {
@@ -426,14 +472,23 @@ export async function sendSubscriptionToServer(
       } else if (statusCode === 500) {
         errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
       }
+      // 상태 코드 기반 메시지도 커스텀 코드 형식으로 변환
+      const finalStatusMessage = `[${customErrorCode || '10'}] ${errorMessage}`;
+      return { 
+        success: false, 
+        error: finalStatusMessage,
+        status: statusCode,
+        errorCode: customErrorCode || '10',
+        details: error.details,
+      };
     }
     
     return { 
       success: false, 
-      error: errorMessage,
+      error: finalMessage,
       status: statusCode,
-      errorCode,
-      details: errorDetails,
+      errorCode: customErrorCode,
+      details: error.details,
     };
   }
 }

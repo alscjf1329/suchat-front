@@ -226,23 +226,8 @@ export default function SettingsPage() {
           if ('reason' in result && result.reason === 'permission_denied') {
             showToast('알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.', 'error')
           } else if ('reason' in result && result.reason === 'server_error') {
-            // 서버 에러: 에러 코드와 메시지, 상세 사유 표시
-            const errorCode = result.errorCode ? `[${result.errorCode}] ` : ''
-            let errorMsg = result.error || '서버 오류가 발생했습니다.'
-            
-            // 상세 사유가 있으면 추가
-            if (result.details) {
-              if (typeof result.details === 'string') {
-                errorMsg += `\n상세: ${result.details}`
-              } else if (typeof result.details === 'object') {
-                const detailsStr = Object.entries(result.details)
-                  .map(([key, value]) => `${key}: ${value}`)
-                  .join(', ')
-                if (detailsStr) {
-                  errorMsg += `\n상세: ${detailsStr}`
-                }
-              }
-            }
+            // 서버 에러: 이미 [코드] 형식으로 포맷된 메시지 사용
+            const errorMsg = result.error || '서버 오류가 발생했습니다.'
             
             console.error('❌ Push server error:', { 
               errorCode: result.errorCode, 
@@ -250,7 +235,7 @@ export default function SettingsPage() {
               status: result.status,
               details: result.details 
             })
-            showToast(`푸시 알림 활성화 실패: ${errorCode}${errorMsg}`, 'error')
+            showToast(`푸시 알림 활성화 실패: ${errorMsg}`, 'error')
           } else if ('error' in result) {
             const errorMsg = (result.error instanceof Error ? result.error.message : null) || '알 수 없는 오류'
             console.error('❌ Push error:', result.error)
