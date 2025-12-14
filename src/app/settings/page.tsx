@@ -226,7 +226,7 @@ export default function SettingsPage() {
           if ('reason' in result && result.reason === 'permission_denied') {
             showToast('알림 권한이 거부되었습니다. 브라우저 설정에서 권한을 허용해주세요.', 'error')
           } else if ('reason' in result && result.reason === 'server_error') {
-            // 서버 에러: 이미 [코드] 형식으로 포맷된 메시지 사용
+            // 서버 에러: [코드] 형식으로 포맷된 메시지 사용
             const errorMsg = result.error || '서버 오류가 발생했습니다.'
             
             console.error('❌ Push server error:', { 
@@ -235,9 +235,21 @@ export default function SettingsPage() {
               status: result.status,
               details: result.details 
             })
-            showToast(`푸시 알림 활성화 실패: ${errorMsg}`, 'error')
+            
+            // 이미 [코드] 형식이면 그대로 사용, 아니면 에러 코드 추가
+            const finalErrorMsg = errorMsg.startsWith('[') 
+              ? errorMsg 
+              : result.errorCode 
+                ? `[${result.errorCode}] ${errorMsg}`
+                : errorMsg
+            
+            showToast(`푸시 알림 활성화 실패: ${finalErrorMsg}`, 'error')
+          } else if ('reason' in result && result.reason === 'service_worker_failed') {
+            showToast(`푸시 알림 활성화 실패: ${result.error || 'Service Worker 등록 실패'}`, 'error')
+          } else if ('reason' in result && result.reason === 'subscription_failed') {
+            showToast(`푸시 알림 활성화 실패: ${result.error || '푸시 구독 생성 실패'}`, 'error')
           } else if ('error' in result) {
-            const errorMsg = (result.error instanceof Error ? result.error.message : null) || '알 수 없는 오류'
+            const errorMsg = (result.error instanceof Error ? result.error.message : String(result.error)) || '알 수 없는 오류'
             console.error('❌ Push error:', result.error)
             showToast(`푸시 알림 활성화 실패: ${errorMsg}`, 'error')
           } else {

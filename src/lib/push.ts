@@ -581,10 +581,27 @@ export async function initializePushNotifications(token: string): Promise<PushIn
       error: error.message,
       stack: error.stack,
       name: error.name,
+      code: error.code,
     });
+    
+    // 에러 코드가 있으면 [코드] 형식으로 변환
+    let errorMessage = error.message || '알 수 없는 오류가 발생했습니다.';
+    if (error.code && !errorMessage.startsWith('[')) {
+      const errorCodeMap: Record<string, string> = {
+        '01': '서버 연결 실패',
+        '02': '필수 필드 누락',
+        '03': '푸시 구독 처리 실패',
+        '09': '서버 내부 오류',
+        '10': '알 수 없는 오류',
+      };
+      const errorDesc = errorCodeMap[error.code] || '알 수 없는 오류';
+      errorMessage = `[${error.code}] ${errorDesc}: ${errorMessage}`;
+    }
+    
     return { 
       success: false, 
-      error: error.message || '알 수 없는 오류가 발생했습니다.'
+      error: errorMessage,
+      errorCode: error.code,
     };
   }
 }
