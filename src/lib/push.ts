@@ -10,6 +10,9 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_KEY || '';
 export type PushInitResult = 
   | { success: true; subscription: PushSubscription }
   | { success: false; reason: 'permission_denied' }
+  | { success: false; reason: 'service_worker_failed'; error: string }
+  | { success: false; reason: 'subscription_failed'; error: string }
+  | { success: false; reason: 'server_error'; error: string; status?: number; errorCode?: string; details?: any }
   | { success: false; error: unknown };
 
 /**
@@ -261,23 +264,36 @@ export async function getPushSubscription(
 }
 
 /**
+ * 서버에 구독 정보 전송 결과 타입
+ */
+export type SendSubscriptionResult = 
+  | { success: true }
+  | { success: false; error: string; status?: number; errorCode?: string; details?: any };
+
+/**
  * 서버에 구독 정보 전송
  */
 export async function sendSubscriptionToServer(
   subscription: PushSubscription,
   token: string
-): Promise<boolean> {
+): Promise<SendSubscriptionResult> {
+  // 기기 정보 가져오기 (catch 블록에서도 사용 가능하도록 밖에서 선언)
+  const { getDeviceInfo } = await import('./device');
+  const deviceInfo = getDeviceInfo();
+  
   try {
     const subscriptionJSON = subscription.toJSON();
-    
-    // 기기 정보 가져오기
-    const { getDeviceInfo } = await import('./device');
-    const deviceInfo = getDeviceInfo();
     
     // localStorage에서 기기 이름 확인 (사용자가 설정한 이름이 있으면 사용)
     const savedDeviceName = typeof window !== 'undefined' 
       ? localStorage.getItem(`device_name_${deviceInfo.deviceId}`)
       : null;
+    
+    console.log('📤 [sendSubscriptionToServer] 서버에 구독 정보 전송:', {
+      deviceId: deviceInfo.deviceId,
+      deviceType: deviceInfo.platform,
+      endpoint: subscriptionJSON.endpoint?.substring(0, 50) + '...',
+    });
     
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/push/subscribe`, {
       method: 'POST',
@@ -299,6 +315,15 @@ export async function sendSubscriptionToServer(
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
       
+      console.error('❌ [sendSubscriptionToServer] 서버 응답 실패:', {
+        status: response.status,
+        statusText: response.statusText,
+        errorData,
+        errorCode: errorData.errorCode,
+        deviceId: deviceInfo.deviceId,
+        deviceType: deviceInfo.platform,
+      });
+      
       // 401 Unauthorized - 토큰 만료, 로그인 필요
       if (response.status === 401) {
         // 로컬 스토리지 정리
@@ -315,15 +340,101 @@ export async function sendSubscriptionToServer(
         throw new Error('인증이 만료되었습니다. 다시 로그인해주세요.');
       }
       
-      throw new Error(`Server error (${response.status}): ${errorData.message || response.statusText}`);
+      // 서버에서 내려온 에러 코드와 메시지 사용
+      const errorMessage = errorData.message || errorData.error || '알 수 없는 오류';
+      const errorCode = errorData.errorCode || 'UNKNOWN_ERROR';
+      const errorDetails = errorData.details;
+      
+      // 상세 사유가 있으면 메시지에 포함
+      let fullErrorMessage = errorMessage;
+      if (errorDetails) {
+        if (typeof errorDetails === 'string') {
+          fullErrorMessage = `${errorMessage}\n상세: ${errorDetails}`;
+        } else if (typeof errorDetails === 'object') {
+          const detailsStr = JSON.stringify(errorDetails, null, 2);
+          fullErrorMessage = `${errorMessage}\n상세: ${detailsStr}`;
+        }
+      }
+      
+      const error: any = new Error(fullErrorMessage);
+      error.code = errorCode;
+      error.status = response.status;
+      error.details = errorDetails;
+      error.originalMessage = errorMessage;
+      
+      throw error;
     }
 
-    await response.json();
-    console.log('✅ Push subscription registered');
-    return true;
-  } catch (error) {
-    console.error('❌ Failed to send subscription to server:', error);
-    return false;
+    const result = await response.json();
+    console.log('✅ [sendSubscriptionToServer] Push subscription registered:', result);
+    return { success: true };
+  } catch (error: any) {
+    console.error('❌ [sendSubscriptionToServer] Failed to send subscription to server:', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: deviceInfo.deviceId,
+      deviceType: deviceInfo.platform,
+    });
+    
+    // 에러 메시지 추출
+    let errorMessage = '서버에 구독 정보를 전송하는데 실패했습니다.';
+    let statusCode: number | undefined = error.status;
+    let errorCode: string | undefined = error.code;
+    const errorDetails = error.details;
+    
+    // 원본 메시지가 있으면 우선 사용 (서버에서 내려온 상세 메시지)
+    if (error.originalMessage) {
+      errorMessage = error.originalMessage;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    // 에러 코드별 기본 메시지 매핑 (상세 메시지가 없을 때만 사용)
+    if (errorCode && !error.originalMessage) {
+      const errorMessages: Record<string, string> = {
+        'MISSING_REQUIRED_FIELDS': '필수 필드가 누락되었습니다. 브라우저를 새로고침해주세요.',
+        'PUSH_SUBSCRIPTION_FAILED': '푸시 구독 처리에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        'SUBSCRIPTION_NOT_FOUND': '구독 정보를 찾을 수 없습니다. 다시 구독해주세요.',
+        'DATABASE_CONSTRAINT_VIOLATION': '데이터베이스 제약조건 위반이 발생했습니다. 잠시 후 다시 시도해주세요.',
+        'DATABASE_CONNECTION_FAILED': '데이터베이스 연결에 실패했습니다. 잠시 후 다시 시도해주세요.',
+        'DATABASE_ERROR': '데이터베이스 오류가 발생했습니다. 잠시 후 다시 시도해주세요.',
+        'DEVICE_NOT_FOUND': '기기 정보를 찾을 수 없습니다.',
+        'UNKNOWN_ERROR': '알 수 없는 오류가 발생했습니다.',
+      };
+      
+      if (errorMessages[errorCode]) {
+        errorMessage = errorMessages[errorCode];
+      } else {
+        // 알 수 없는 에러 코드인 경우 코드를 포함한 메시지
+        errorMessage = `[${errorCode}] ${errorMessage}`;
+      }
+    }
+    
+    // 에러 코드가 있으면 메시지 앞에 추가
+    if (errorCode && !errorMessage.startsWith(`[${errorCode}]`)) {
+      errorMessage = `[${errorCode}] ${errorMessage}`;
+    }
+    
+    // HTTP 상태 코드별 메시지 (에러 코드가 없는 경우)
+    if (!errorCode && statusCode) {
+      if (statusCode === 400) {
+        errorMessage = '잘못된 요청입니다. 구독 정보를 확인해주세요.';
+      } else if (statusCode === 401) {
+        errorMessage = '인증이 만료되었습니다. 다시 로그인해주세요.';
+      } else if (statusCode === 403) {
+        errorMessage = '권한이 없습니다.';
+      } else if (statusCode === 500) {
+        errorMessage = '서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+      }
+    }
+    
+    return { 
+      success: false, 
+      error: errorMessage,
+      status: statusCode,
+      errorCode,
+      details: errorDetails,
+    };
   }
 }
 
@@ -370,7 +481,11 @@ export async function initializePushNotifications(token: string): Promise<PushIn
     // 1. Service Worker 등록
     const registration = await registerServiceWorker();
     if (!registration) {
-      throw new Error('Service Worker registration failed');
+      return { 
+        success: false, 
+        reason: 'service_worker_failed',
+        error: 'Service Worker 등록에 실패했습니다. 브라우저를 새로고침해주세요.'
+      };
     }
 
     // 2. 알림 권한 요청
@@ -383,20 +498,39 @@ export async function initializePushNotifications(token: string): Promise<PushIn
     // 3. 푸시 구독 (기기별 독립 구독)
     const subscription = await subscribeToPush(registration, false);
     if (!subscription) {
-      throw new Error('Push subscription failed');
+      return {
+        success: false,
+        reason: 'subscription_failed',
+        error: '푸시 구독 생성에 실패했습니다. 브라우저가 푸시 알림을 지원하는지 확인해주세요.'
+      };
     }
 
     // 4. 서버에 구독 정보 전송
-    const sent = await sendSubscriptionToServer(subscription, token);
-    if (!sent) {
-      throw new Error('Failed to send subscription to server');
+    console.log('📤 [initializePushNotifications] 서버에 구독 정보 전송 시작');
+    const serverResult = await sendSubscriptionToServer(subscription, token);
+    if (!serverResult.success) {
+      return {
+        success: false,
+        reason: 'server_error',
+        error: serverResult.error || '서버에 구독 정보를 전송하는데 실패했습니다.',
+        status: serverResult.status,
+        errorCode: serverResult.errorCode,
+        details: serverResult.details,
+      };
     }
 
-    console.log('🎉 Push notifications initialized successfully');
+    console.log('🎉 [initializePushNotifications] Push notifications initialized successfully');
     return { success: true, subscription };
-  } catch (error) {
-    console.error('❌ Push notification initialization failed:', error);
-    return { success: false, error };
+  } catch (error: any) {
+    console.error('❌ [initializePushNotifications] Push notification initialization failed:', {
+      error: error.message,
+      stack: error.stack,
+      name: error.name,
+    });
+    return { 
+      success: false, 
+      error: error.message || '알 수 없는 오류가 발생했습니다.'
+    };
   }
 }
 
