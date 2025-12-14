@@ -54,24 +54,121 @@ export function detectDeviceType(): DeviceType {
 }
 
 /**
- * 기기 고유 ID 생성 또는 가져오기
- * localStorage에 저장하여 동일 기기에서 재사용
+ * 새로운 기기 ID 생성
  */
-export function getOrCreateDeviceId(): string {
+function generateDeviceId(): string {
+  return 'device_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+}
+
+/**
+ * deviceId를 스토리지에 저장 (공통 메소드)
+ * localStorage 우선, 실패 시 sessionStorage 사용
+ */
+function saveDeviceIdToStorage(deviceId: string): boolean {
   if (typeof window === 'undefined') {
-    return 'unknown';
+    return false;
   }
 
   const STORAGE_KEY = 'suchat_device_id';
-  let deviceId = localStorage.getItem(STORAGE_KEY);
-
-  if (!deviceId) {
-    // 새 기기 ID 생성 (UUID v4 형식)
-    deviceId = 'device_' + Date.now() + '_' + Math.random().toString(36).substring(2, 15);
+  
+  try {
+    // localStorage에 저장 시도
     localStorage.setItem(STORAGE_KEY, deviceId);
+    console.log('✅ [saveDeviceIdToStorage] localStorage에 저장 완료');
+    return true;
+  } catch (localStorageError: any) {
+    console.warn('⚠️  [saveDeviceIdToStorage] localStorage 저장 실패, sessionStorage 시도');
+    
+    try {
+      // localStorage 실패 시 sessionStorage 사용
+      sessionStorage.setItem(STORAGE_KEY, deviceId);
+      console.log('✅ [saveDeviceIdToStorage] sessionStorage에 저장 완료');
+      return true;
+    } catch (sessionStorageError: any) {
+      console.error('❌ [saveDeviceIdToStorage] 모든 스토리지 저장 실패');
+      return false;
+    }
+  }
+}
+
+/**
+ * 스토리지에서 deviceId 가져오기 (공통 메소드)
+ * localStorage 우선, 없으면 sessionStorage 확인
+ */
+function getDeviceIdFromStorage(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
   }
 
-  return deviceId;
+  const STORAGE_KEY = 'suchat_device_id';
+  
+  try {
+    // localStorage에서 먼저 확인
+    const fromLocalStorage = localStorage.getItem(STORAGE_KEY);
+    if (fromLocalStorage && fromLocalStorage.trim() !== '') {
+      return fromLocalStorage;
+    }
+    
+    // localStorage에 없으면 sessionStorage 확인
+    const fromSessionStorage = sessionStorage.getItem(STORAGE_KEY);
+    if (fromSessionStorage && fromSessionStorage.trim() !== '') {
+      // sessionStorage에 있으면 localStorage에도 저장 시도
+      try {
+        localStorage.setItem(STORAGE_KEY, fromSessionStorage);
+        console.log('✅ [getDeviceIdFromStorage] sessionStorage → localStorage 복사 완료');
+      } catch (e) {
+        // 복사 실패해도 계속 진행
+      }
+      return fromSessionStorage;
+    }
+    
+    return null;
+  } catch (error: any) {
+    console.error('❌ [getDeviceIdFromStorage] 스토리지 읽기 실패:', error);
+    return null;
+  }
+}
+
+/**
+ * 기기 고유 ID 생성 또는 가져오기 (공통 메소드)
+ * 1. 스토리지에서 기존 deviceId 확인
+ * 2. 없으면 새로 생성
+ * 3. 스토리지에 저장
+ * 
+ * @returns deviceId (항상 유효한 값 반환)
+ */
+export function getOrCreateDeviceId(): string {
+  if (typeof window === 'undefined') {
+    console.error('❌ [getOrCreateDeviceId] window is undefined');
+    return 'unknown';
+  }
+
+  try {
+    // 1. 스토리지에서 기존 deviceId 확인
+    let deviceId = getDeviceIdFromStorage();
+
+    if (!deviceId || deviceId.trim() === '') {
+      // 2. 없으면 새로 생성
+      deviceId = generateDeviceId();
+      console.log('🆕 [getOrCreateDeviceId] 새 deviceId 생성:', deviceId);
+      
+      // 3. 스토리지에 저장
+      const saved = saveDeviceIdToStorage(deviceId);
+      if (!saved) {
+        console.warn('⚠️  [getOrCreateDeviceId] 스토리지 저장 실패, 세션 동안만 사용 가능');
+      }
+    } else {
+      console.log('✅ [getOrCreateDeviceId] 기존 deviceId 사용:', deviceId);
+    }
+
+    return deviceId;
+  } catch (error: any) {
+    console.error('❌ [getOrCreateDeviceId] 에러 발생:', error);
+    // 에러 발생 시 임시 deviceId 생성 (스토리지 저장 없이)
+    const fallbackDeviceId = generateDeviceId();
+    console.warn('⚠️  [getOrCreateDeviceId] fallback deviceId 사용:', fallbackDeviceId);
+    return fallbackDeviceId;
+  }
 }
 
 /**
