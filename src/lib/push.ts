@@ -275,11 +275,12 @@ export type SendSubscriptionResult =
  */
 export async function sendSubscriptionToServer(
   subscription: PushSubscription,
-  token: string
+  token: string,
+  retryOnDeviceIdError: boolean = true
 ): Promise<SendSubscriptionResult> {
   // 기기 정보 가져오기 (catch 블록에서도 사용 가능하도록 밖에서 선언)
-  const { getDeviceInfo } = await import('./device');
-  const deviceInfo = getDeviceInfo();
+  const { getDeviceInfo, getOrCreateDeviceId } = await import('./device');
+  let deviceInfo = getDeviceInfo();
   
   try {
     const subscriptionJSON = subscription.toJSON();
@@ -346,6 +347,19 @@ export async function sendSubscriptionToServer(
       const customErrorCode = errorData.errorCode || (response.status === 500 ? '09' : '10');
       const originalErrorCode = errorData.originalErrorCode;
       const errorDetails = errorData.details;
+      
+      // 에러 코드 '02' (필수 필드 누락 - deviceId)이고 재시도 가능한 경우
+      if (customErrorCode === '02' && retryOnDeviceIdError && errorMessage.includes('deviceId')) {
+        console.warn('⚠️  [sendSubscriptionToServer] deviceId 누락 감지, 새 deviceId 생성 후 재시도');
+        
+        // deviceId를 강제로 새로 생성
+        const { regenerateDeviceId } = await import('./device');
+        const newDeviceId = regenerateDeviceId();
+        console.log('🆕 [sendSubscriptionToServer] 새 deviceId 생성:', newDeviceId);
+        
+        // deviceId 갱신 후 재시도 (재시도 플래그는 false로 설정하여 무한 루프 방지)
+        return await sendSubscriptionToServer(subscription, token, false);
+      }
       
       // 상세 사유가 있으면 메시지에 포함
       let fullErrorMessage = errorMessage;

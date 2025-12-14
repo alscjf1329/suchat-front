@@ -172,6 +172,48 @@ export function getOrCreateDeviceId(): string {
 }
 
 /**
+ * deviceId를 강제로 새로 생성 (기존 deviceId 삭제 후 새로 생성)
+ * @returns 새로 생성된 deviceId
+ */
+export function regenerateDeviceId(): string {
+  if (typeof window === 'undefined') {
+    console.error('❌ [regenerateDeviceId] window is undefined');
+    return 'unknown';
+  }
+
+  try {
+    const STORAGE_KEY = 'suchat_device_id';
+    
+    // 기존 deviceId 삭제
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem(STORAGE_KEY);
+      console.log('🗑️  [regenerateDeviceId] 기존 deviceId 삭제 완료');
+    } catch (e) {
+      console.warn('⚠️  [regenerateDeviceId] 기존 deviceId 삭제 실패:', e);
+    }
+    
+    // 새 deviceId 생성
+    const newDeviceId = generateDeviceId();
+    console.log('🆕 [regenerateDeviceId] 새 deviceId 생성:', newDeviceId);
+    
+    // 스토리지에 저장
+    const saved = saveDeviceIdToStorage(newDeviceId);
+    if (!saved) {
+      console.warn('⚠️  [regenerateDeviceId] 스토리지 저장 실패, 세션 동안만 사용 가능');
+    }
+    
+    return newDeviceId;
+  } catch (error: any) {
+    console.error('❌ [regenerateDeviceId] 에러 발생:', error);
+    // 에러 발생 시 임시 deviceId 생성 (스토리지 저장 없이)
+    const fallbackDeviceId = generateDeviceId();
+    console.warn('⚠️  [regenerateDeviceId] fallback deviceId 사용:', fallbackDeviceId);
+    return fallbackDeviceId;
+  }
+}
+
+/**
  * 기기 이름 생성
  */
 export function getDeviceName(): string {
