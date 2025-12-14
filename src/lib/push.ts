@@ -180,30 +180,51 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 /**
  * 푸시 알림 구독
+ * 기기별로 독립적인 구독을 생성 (iOS와 desktop 등 다른 기기 지원)
+ * 같은 사용자가 여러 기기에서 각각 독립적으로 구독 가능
  */
 export async function subscribeToPush(
-  registration: ServiceWorkerRegistration
+  registration: ServiceWorkerRegistration,
+  forceNew: boolean = false
 ): Promise<PushSubscription | null> {
   try {
     if (!VAPID_PUBLIC_KEY) {
       throw new Error('VAPID public key not configured');
     }
 
-    // 기존 구독 확인
-    const existingSubscription = await registration.pushManager.getSubscription();
-    if (existingSubscription) {
-      console.log('✅ Using existing push subscription');
-      return existingSubscription;
+    // 기기 정보 가져오기
+    const { getDeviceInfo } = await import('./device');
+    const deviceInfo = getDeviceInfo();
+    
+    // 기존 구독 확인 (같은 기기에서만 재사용)
+    if (!forceNew) {
+      const existingSubscription = await registration.pushManager.getSubscription();
+      if (existingSubscription) {
+        const lastDeviceId = typeof window !== 'undefined'
+          ? localStorage.getItem('last_push_subscription_deviceId')
+          : null;
+        
+        // 같은 기기에서 구독한 경우 재사용
+        if (lastDeviceId === deviceInfo.deviceId) {
+          console.log('✅ Using existing push subscription for device:', deviceInfo.deviceId);
+          return existingSubscription;
+        }
+      }
     }
 
+    // 새 구독 생성
     const applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-
     const subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: applicationServerKey as BufferSource,
     });
 
-    console.log('✅ New push subscription created');
+    // 현재 기기의 deviceId 저장
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('last_push_subscription_deviceId', deviceInfo.deviceId);
+    }
+
+    console.log('✅ New push subscription created for device:', deviceInfo.deviceId, deviceInfo.platform);
     return subscription;
   } catch (error) {
     console.error('❌ Push subscription failed:', error);
@@ -223,6 +244,12 @@ export async function unsubscribeFromPush(
     if (subscription) {
       const success = await subscription.unsubscribe();
       console.log('🔕 Push unsubscribed:', success);
+      
+      // localStorage 정리
+      if (typeof window !== 'undefined' && success) {
+        localStorage.removeItem('last_push_subscription_deviceId');
+      }
+      
       return success;
     }
     
@@ -368,8 +395,8 @@ export async function initializePushNotifications(token: string): Promise<PushIn
       return { success: false, reason: 'permission_denied' };
     }
 
-    // 3. 푸시 구독
-    const subscription = await subscribeToPush(registration);
+    // 3. 푸시 구독 (기기별 독립 구독)
+    const subscription = await subscribeToPush(registration, false);
     if (!subscription) {
       throw new Error('Push subscription failed');
     }
