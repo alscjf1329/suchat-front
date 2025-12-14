@@ -180,8 +180,9 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 /**
  * 푸시 알림 구독
- * 기기별로 독립적인 구독을 생성 (iOS와 desktop 등 다른 기기 지원)
- * 같은 사용자가 여러 기기에서 각각 독립적으로 구독 가능
+ * 서버에서 deviceId 기준으로 추가/업데이트 처리
+ * - 등록되지 않은 deviceId → 서버에 추가
+ * - 기존에 등록된 deviceId → 서버에서 업데이트
  */
 export async function subscribeToPush(
   registration: ServiceWorkerRegistration,
@@ -192,24 +193,13 @@ export async function subscribeToPush(
       throw new Error('VAPID public key not configured');
     }
 
-    // 기기 정보 가져오기
-    const { getDeviceInfo } = await import('./device');
-    const deviceInfo = getDeviceInfo();
+    // 기존 구독 확인 (Service Worker에서)
+    const existingSubscription = await registration.pushManager.getSubscription();
     
-    // 기존 구독 확인 (같은 기기에서만 재사용)
-    if (!forceNew) {
-      const existingSubscription = await registration.pushManager.getSubscription();
-      if (existingSubscription) {
-        const lastDeviceId = typeof window !== 'undefined'
-          ? localStorage.getItem('last_push_subscription_deviceId')
-          : null;
-        
-        // 같은 기기에서 구독한 경우 재사용
-        if (lastDeviceId === deviceInfo.deviceId) {
-          console.log('✅ Using existing push subscription for device:', deviceInfo.deviceId);
-          return existingSubscription;
-        }
-      }
+    // 기존 구독이 있고 강제로 새로 만들지 않는 경우 재사용
+    if (!forceNew && existingSubscription) {
+      console.log('✅ Using existing push subscription');
+      return existingSubscription;
     }
 
     // 새 구독 생성
@@ -219,12 +209,7 @@ export async function subscribeToPush(
       applicationServerKey: applicationServerKey as BufferSource,
     });
 
-    // 현재 기기의 deviceId 저장
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('last_push_subscription_deviceId', deviceInfo.deviceId);
-    }
-
-    console.log('✅ New push subscription created for device:', deviceInfo.deviceId, deviceInfo.platform);
+    console.log('✅ New push subscription created');
     return subscription;
   } catch (error) {
     console.error('❌ Push subscription failed:', error);
