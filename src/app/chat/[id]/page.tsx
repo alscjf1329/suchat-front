@@ -104,8 +104,18 @@ export default function ChatRoomPage() {
   const deleteSelectedPhotos = useCallback(async () => {
     if (selectedPhotos.size === 0) return
 
-    const photoCount = selectedPhotos.size
-    const photoIds = Array.from(selectedPhotos)
+    // 메시지에서 온 사진은 제외 (fromMessage가 true인 것 제외)
+    const deletablePhotos = albumPhotos.filter(photo => 
+      selectedPhotos.has(photo.id) && !photo.fromMessage
+    )
+    
+    if (deletablePhotos.length === 0) {
+      showToast('메시지에서 보낸 사진은 삭제할 수 없습니다', 'info')
+      return
+    }
+
+    const photoCount = deletablePhotos.length
+    const photoIds = deletablePhotos.map(photo => photo.id)
     const currentFolderId = selectedFolderId
 
     try {
@@ -119,8 +129,8 @@ export default function ChatRoomPage() {
       const deleted = result?.deleted ?? 0
       const failed = result?.failed ?? 0
       
-      // UI 업데이트
-      setAlbumPhotos(prev => prev.filter(photo => !selectedPhotos.has(photo.id)))
+      // UI 업데이트 (메시지 사진은 제외하고 삭제된 것만 필터링)
+      setAlbumPhotos(prev => prev.filter(photo => !photoIds.includes(photo.id)))
       setSelectedPhotos(new Set())
       setIsSelectionMode(false)
       
@@ -1021,8 +1031,11 @@ export default function ChatRoomPage() {
         setAlbumPhotos(filteredPhotos)
       }
       
-      setAlbumTotal(total)
-      setAlbumHasMore(filteredPhotos.length === limit && (offset + filteredPhotos.length) < total)
+      // 백엔드에서 반환한 total을 사용하여 더 불러올 사진이 있는지 판단
+      // filteredPhotos.length < limit이면 더 이상 없음
+      // 또는 (offset + filteredPhotos.length) >= total이면 더 이상 없음
+      const hasMore = filteredPhotos.length === limit && (offset + filteredPhotos.length) < total
+      setAlbumHasMore(hasMore)
       setAlbumPage(page)
     } catch (error) {
       console.error('❌ 사진첩 로드 실패:', error)
@@ -1036,12 +1049,34 @@ export default function ChatRoomPage() {
     }
   }
   
+  // 사진첩 전체 개수 조회
+  const loadAlbumCount = useCallback(async (folderId?: string | null) => {
+    if (!chatId) return
+    
+    try {
+      const folderIdParam = folderId === null ? '' : (folderId || undefined)
+      const url = folderIdParam !== undefined 
+        ? `/chat/album/${chatId}/count?folderId=${folderIdParam === '' ? '' : folderIdParam}`
+        : `/chat/album/${chatId}/count`
+      
+      const response = await apiClient.get(url)
+      const result = response.data || response
+      const count = result.count || 0
+      setAlbumTotal(count)
+    } catch (error) {
+      console.error('❌ 사진 개수 조회 실패:', error)
+    }
+  }, [chatId])
+  
   // 사진첩 초기 로드 (페이지 리셋)
   const loadAlbumInitial = useCallback(async (folderId?: string | null) => {
     setAlbumPage(0)
     setAlbumHasMore(true)
+    // 전체 개수 먼저 조회
+    await loadAlbumCount(folderId)
+    // 사진 목록 로드
     await loadAlbum(folderId, 0, false)
-  }, [chatId])
+  }, [chatId, loadAlbumCount])
   
   // 사진첩 다음 페이지 로드
   const loadAlbumNext = useCallback(async () => {
@@ -1131,9 +1166,12 @@ export default function ChatRoomPage() {
               
               {/* 폴더 아이콘 및 이름 */}
               <button
-                onClick={() => {
+                onClick={async () => {
                   setSelectedFolderId(folder.id)
-                  loadAlbumInitial(folder.id)
+                  // 폴더별 전체 개수 조회
+                  await loadAlbumCount(folder.id)
+                  // 사진 목록 로드
+                  await loadAlbumInitial(folder.id)
                   setAlbumTab('photos') // 모바일에서 사진 탭으로 전환
                 }}
                 className="flex items-center space-x-3 flex-1 min-w-0"
@@ -2138,7 +2176,7 @@ export default function ChatRoomPage() {
                         setIsAlbumOpen(true)
                         setSelectedFolderId(null)
                         loadFolders()
-                        loadAlbum(null)
+                        loadAlbumInitial(null)
                       }}
                       className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
                     >
@@ -2479,8 +2517,8 @@ export default function ChatRoomPage() {
                       <h2 className="text-2xl font-bold text-primary tracking-tight">{t('album.title')}</h2>
                       <p className="text-sm text-secondary mt-1.5 font-medium">
                         {selectedFolderId 
-                          ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || t('album.manageFolders')} · ${albumPhotos?.length || 0}개`
-                          : t('album.totalPhotos').replace('{count}', String(albumPhotos?.length || 0))}
+                          ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || t('album.manageFolders')} · ${albumTotal || 0}개`
+                          : t('album.totalPhotos').replace('{count}', String(albumTotal || 0))}
                       </p>
                     </div>
                   </div>
@@ -2659,9 +2697,12 @@ export default function ChatRoomPage() {
                   <div className="p-5 space-y-2">
                     {/* 전체 보기 */}
                     <button
-                      onClick={() => {
+                      onClick={async () => {
                         setSelectedFolderId(null)
-                        loadAlbum(null)
+                        // 전체 개수 조회
+                        await loadAlbumCount(null)
+                        // 사진 목록 로드
+                        await loadAlbumInitial(null)
                         setAlbumTab('photos') // 모바일에서 사진 탭으로 전환
                       }}
                       className={`w-full px-4 py-3.5 rounded-xl text-left transition-all duration-200 flex items-center space-x-3 group ${
@@ -2786,14 +2827,17 @@ export default function ChatRoomPage() {
                           }`}
                           onClick={() => {
                             if (isSelectionMode) {
-                              togglePhotoSelection(photo.id)
+                              // 메시지에서 온 사진은 선택 불가
+                              if (!photo.fromMessage) {
+                                togglePhotoSelection(photo.id)
+                              }
                             } else {
                               window.open(fileUrl, '_blank')
                             }
                           }}
                         >
-                          {/* 선택 체크박스 */}
-                          {isSelectionMode && (
+                          {/* 선택 체크박스 (메시지 사진은 선택 불가) */}
+                          {isSelectionMode && !photo.fromMessage && (
                             <div className="absolute top-3 left-3 z-10">
                               <div className={`w-9 h-9 rounded-xl border-2 flex items-center justify-center transition-all duration-200 backdrop-blur-sm ${
                                 selectedPhotos.has(photo.id)
@@ -2827,8 +2871,8 @@ export default function ChatRoomPage() {
                             </div>
                           )}
                           
-                          {/* 삭제 버튼 (본인이 업로드한 것만) */}
-                          {photo.uploadedBy === currentUser?.id && !isSelectionMode && (
+                          {/* 삭제 버튼 (본인이 업로드한 것만, 메시지에서 온 것은 삭제 불가) */}
+                          {photo.uploadedBy === currentUser?.id && !photo.fromMessage && !isSelectionMode && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
