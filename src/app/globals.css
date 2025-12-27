@@ -70,6 +70,27 @@ header {
   color: var(--icon-active);
 }
 
+/* 버튼 색상 */
+.btn-primary {
+  background-color: var(--icon-active);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: var(--icon-active);
+  opacity: 0.9;
+}
+
+.btn-primary-dark {
+  background-color: var(--icon-active);
+  color: white;
+}
+
+.btn-primary-dark:hover {
+  background-color: var(--icon-active);
+  filter: brightness(0.85);
+}
+
 /* 메시지 버블 */
 .message-send {
   background-color: var(--message-send);

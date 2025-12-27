@@ -162,6 +162,41 @@ const zh: TranslationKeys = {
     required: '此字段为必填项。',
     invalidEmail: '请输入有效的邮箱地址。',
     passwordTooShort: '密码至少需要6个字符。'
+  },
+  
+  album: {
+    title: '相册',
+    add: '添加',
+    select: '选择',
+    cancel: '取消',
+    selectAll: '全选',
+    clearSelection: '取消选择',
+    download: '下载',
+    downloading: '下载中...',
+    delete: '删除',
+    deleteConfirm: '确定要删除这张照片吗？',
+    deleted: '已删除',
+    deleteFailed: '删除失败',
+    viewPhotos: '查看照片',
+    manageFolders: '管理文件夹',
+    allPhotos: '全部照片',
+    totalPhotos: '共 {count} 张照片/视频',
+    folderEmpty: '此文件夹为空',
+    albumEmpty: '相册为空',
+    folderEmptyMessage: '向此文件夹添加第一张照片！',
+    albumEmptyMessage: '添加您的第一张照片！',
+    newFolder: '新建文件夹',
+    folderNamePlaceholder: '输入文件夹名称',
+    folderCreated: '文件夹已创建',
+    folderCreateFailed: '创建文件夹失败',
+    folderDeleted: '文件夹已删除',
+    folderDeleteFailed: '删除文件夹失败',
+    loadFailed: '无法加载相册。',
+    uploadSuccess: '文件已添加到相册',
+    uploadFailed: '文件上传失败',
+    downloadSuccess: '照片已下载',
+    downloadFailed: '下载失败',
+    downloadProgress: '已下载 {completed}/{total} 张照片'
   }
 }
 

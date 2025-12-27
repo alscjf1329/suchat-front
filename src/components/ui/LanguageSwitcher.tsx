@@ -53,7 +53,7 @@ export default function LanguageSwitcher({
                 setLanguage(lang)
                 setIsOpen(false)
               }}
-              className={`w-full flex items-center px-4 py-3 text-left hover:bg-secondary transition-colors duration-200 ${
+              className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-secondary transition-colors duration-200 ${
                 language === lang 
                   ? 'text-[#0064FF] font-medium' 
                   : 'text-primary'

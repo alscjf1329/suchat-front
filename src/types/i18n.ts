@@ -172,6 +172,42 @@ export interface TranslationKeys {
     invalidEmail: string
     passwordTooShort: string
   }
+  
+  // 사진첩
+  album: {
+    title: string
+    add: string
+    select: string
+    cancel: string
+    selectAll: string
+    clearSelection: string
+    download: string
+    downloading: string
+    delete: string
+    deleteConfirm: string
+    deleted: string
+    deleteFailed: string
+    viewPhotos: string
+    manageFolders: string
+    allPhotos: string
+    totalPhotos: string
+    folderEmpty: string
+    albumEmpty: string
+    folderEmptyMessage: string
+    albumEmptyMessage: string
+    newFolder: string
+    folderNamePlaceholder: string
+    folderCreated: string
+    folderCreateFailed: string
+    folderDeleted: string
+    folderDeleteFailed: string
+    loadFailed: string
+    uploadSuccess: string
+    uploadFailed: string
+    downloadSuccess: string
+    downloadFailed: string
+    downloadProgress: string
+  }
 }
 
 export interface I18nContextType {

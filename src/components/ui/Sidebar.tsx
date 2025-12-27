@@ -55,7 +55,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 item.action()
                 onClose()
               }}
-              className="w-full flex items-center px-4 py-4 text-left hover:bg-secondary transition-colors duration-200 text-primary rounded-xl"
+              className="w-full flex items-center justify-start px-4 py-4 text-left hover:bg-secondary transition-colors duration-200 text-primary rounded-xl"
             >
               <span className="text-2xl mr-4">{item.icon}</span>
               <span className="text-lg font-medium">{item.label}</span>

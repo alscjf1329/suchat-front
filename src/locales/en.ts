@@ -162,6 +162,41 @@ const en: TranslationKeys = {
     required: 'This field is required.',
     invalidEmail: 'Please enter a valid email address.',
     passwordTooShort: 'Password must be at least 6 characters.'
+  },
+  
+  album: {
+    title: 'Album',
+    add: 'Add',
+    select: 'Select',
+    cancel: 'Cancel',
+    selectAll: 'Select All',
+    clearSelection: 'Clear Selection',
+    download: 'Download',
+    downloading: 'Downloading...',
+    delete: 'Delete',
+    deleteConfirm: 'Are you sure you want to delete this photo?',
+    deleted: 'Deleted',
+    deleteFailed: 'Delete failed',
+    viewPhotos: 'View Photos',
+    manageFolders: 'Manage Folders',
+    allPhotos: 'All Photos',
+    totalPhotos: 'Total {count} photos/videos',
+    folderEmpty: 'This folder is empty',
+    albumEmpty: 'Album is empty',
+    folderEmptyMessage: 'Add the first photo to this folder!',
+    albumEmptyMessage: 'Add your first photo!',
+    newFolder: 'New Folder',
+    folderNamePlaceholder: 'Enter folder name',
+    folderCreated: 'Folder created',
+    folderCreateFailed: 'Failed to create folder',
+    folderDeleted: 'Folder deleted',
+    folderDeleteFailed: 'Failed to delete folder',
+    loadFailed: 'Failed to load album.',
+    uploadSuccess: 'Files added to album',
+    uploadFailed: 'Failed to upload files',
+    downloadSuccess: 'Photo downloaded',
+    downloadFailed: 'Download failed',
+    downloadProgress: 'Downloaded {completed}/{total} photos'
   }
 }
 

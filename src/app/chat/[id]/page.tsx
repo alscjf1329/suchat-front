@@ -138,9 +138,9 @@ export default function ChatRoomPage() {
         link.click()
         document.body.removeChild(link)
         
-        showToast('사진을 다운로드했습니다', 'success')
+        showToast(t('album.downloadSuccess'), 'success')
       } catch (error) {
-        showToast('다운로드에 실패했습니다', 'error')
+        showToast(t('album.downloadFailed'), 'error')
       } finally {
         setIsDownloading(false)
       }
@@ -186,7 +186,7 @@ export default function ChatRoomPage() {
       }
     }
     
-    showToast(`${completedCount}/${totalCount}개 사진을 다운로드했습니다`, 'success')
+    showToast(t('album.downloadProgress').replace('{completed}', String(completedCount)).replace('{total}', String(totalCount)), 'success')
     setIsDownloading(false)
   }, [selectedPhotos, albumPhotos, showToast, isDownloading])
 
@@ -969,7 +969,7 @@ export default function ChatRoomPage() {
     } catch (error) {
       console.error('❌ 사진첩 로드 실패:', error)
       setAlbumPhotos([])
-      showToast('사진첩을 불러올 수 없습니다.', 'error')
+      showToast(t('album.loadFailed'), 'error')
     }
   }
 
@@ -991,13 +991,13 @@ export default function ChatRoomPage() {
       
       console.log('✅ 폴더 생성 응답:', response)
       
-      showToast('폴더가 생성되었습니다', 'success')
+      showToast(t('album.folderCreated'), 'success')
       setNewFolderName('')
       setIsCreatingFolder(false)
       await loadFolders()
     } catch (error) {
       console.error('❌ 폴더 생성 실패:', error)
-      showToast(`폴더 생성에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
+      showToast(`${t('album.folderCreateFailed')}: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     }
   }
 
@@ -1024,10 +1024,10 @@ export default function ChatRoomPage() {
         <div key={folder.id}>
           <div className="group" style={{ paddingLeft: `${depth * 16}px` }}>
             <div
-              className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-colors ${
+              className={`flex items-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 ${
                 selectedFolderId === folder.id
-                  ? 'bg-[#0064FF] text-white'
-                  : 'hover:bg-secondary text-primary'
+                  ? 'bg-[var(--icon-active)] text-white'
+                  : 'hover:bg-secondary text-primary border border-transparent hover:border-divider'
               }`}
             >
               {/* 펼침/접힘 토글 (왼쪽) */}
@@ -1038,14 +1038,18 @@ export default function ChatRoomPage() {
                     toggleFolder(folder.id)
                   }
                 }}
-                className={`w-5 h-5 flex items-center justify-center flex-shrink-0 ${
-                  selectedFolderId === folder.id ? 'text-white' : 'text-primary'
+                className={`w-6 h-6 flex items-center justify-center flex-shrink-0 rounded transition-all duration-200 ${
+                  selectedFolderId === folder.id 
+                    ? 'text-white hover:bg-white/20' 
+                    : 'text-primary hover:bg-secondary'
                 }`}
               >
                 {hasChildren ? (
-                  <span className="text-sm font-bold">{isExpanded ? '▼' : '▶'}</span>
+                  <svg className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 ) : (
-                  <span className="text-xs opacity-0">·</span>
+                  <span className="w-4 h-4"></span>
                 )}
               </button>
               
@@ -1056,10 +1060,18 @@ export default function ChatRoomPage() {
                   loadAlbum(folder.id)
                   setAlbumTab('photos') // 모바일에서 사진 탭으로 전환
                 }}
-                className="flex items-center space-x-2 flex-1 min-w-0"
+                className="flex items-center space-x-3 flex-1 min-w-0"
               >
-                <span className="text-xl flex-shrink-0">📂</span>
-                <span className="font-medium truncate">{folder.name}</span>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
+                  selectedFolderId === folder.id
+                    ? 'bg-white/20'
+                    : 'bg-secondary group-hover:bg-divider'
+                }`}>
+                  <svg className={`w-5 h-5 ${selectedFolderId === folder.id ? 'text-white' : 'text-primary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                  </svg>
+                </div>
+                <span className={`font-semibold truncate ${selectedFolderId === folder.id ? 'text-white' : 'text-primary'}`}>{folder.name}</span>
               </button>
               
               {/* 하위 폴더 추가 버튼 (모바일: 항상 표시, 데스크톱: hover 시) */}
@@ -1070,14 +1082,16 @@ export default function ChatRoomPage() {
                   setIsCreatingFolder(true)
                   setExpandedFolders(prev => new Set([...prev, folder.id]))
                 }}
-                className={`md:opacity-0 md:group-hover:opacity-100 p-1.5 rounded flex-shrink-0 transition-opacity ${
+                className={`md:opacity-0 md:group-hover:opacity-100 p-2 rounded-lg flex-shrink-0 transition-all duration-200 ${
                   selectedFolderId === folder.id 
-                    ? 'bg-white/20 text-white' 
-                    : 'bg-secondary/50 text-primary hover:bg-secondary'
+                    ? 'bg-white/20 text-white hover:bg-white/30' 
+                    : 'bg-secondary text-primary hover:bg-divider border border-divider'
                 }`}
                 title="하위 폴더 추가"
               >
-                <span className="text-base font-bold">+</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
               </button>
               
               {/* 폴더 삭제 버튼 (모바일: 항상 표시, 데스크톱: hover 시) */}
@@ -1094,18 +1108,20 @@ export default function ChatRoomPage() {
                     if (confirm(warningMessage)) {
                       apiClient.delete(`/chat/album/${chatId}/folders/${folder.id}`)
                         .then(() => {
-                          showToast('폴더가 삭제되었습니다', 'success')
+                          showToast(t('album.folderDeleted'), 'success')
                           setSelectedFolderId(null)
                           loadFolders()
                           loadAlbum(null)
                         })
-                        .catch(() => showToast('폴더 삭제 실패', 'error'))
+                        .catch(() => showToast(t('album.folderDeleteFailed'), 'error'))
                     }
                   }}
-                  className="md:opacity-0 md:group-hover:opacity-100 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold transition-opacity flex-shrink-0"
+                  className="md:opacity-0 md:group-hover:opacity-100 bg-red-500 hover:bg-red-600 text-white rounded-lg w-8 h-8 flex items-center justify-center transition-all duration-200 flex-shrink-0"
                   title="폴더 삭제"
                 >
-                  ✕
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               )}
             </div>
@@ -1136,8 +1152,8 @@ export default function ChatRoomPage() {
                     setNewFolderName('')
                   }
                 }}
-                placeholder="하위 폴더 이름 입력"
-                className="w-full px-3 py-2 bg-primary border-2 border-[#0064FF] rounded-lg text-sm focus:outline-none text-primary"
+                placeholder={t('album.folderNamePlaceholder')}
+                className="w-full px-4 py-3 bg-primary border-2 border-[var(--icon-active)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--icon-active)]/50 focus:border-[var(--icon-active)] text-primary font-medium"
                 autoFocus
               />
             </div>
@@ -1677,10 +1693,10 @@ export default function ChatRoomPage() {
       if (successCount > 0) {
         const message = failCount > 0
           ? `${successCount}개 파일 업로드 완료 (${failCount}개 실패)`
-          : `${successCount}개 파일을 사진첩에 추가했습니다`
+          : t('album.uploadSuccess')
         showToast(message, failCount > 0 ? 'error' : 'success')
       } else {
-        showToast('모든 파일 업로드에 실패했습니다.', 'error')
+        showToast(t('album.uploadFailed'), 'error')
       }
 
       // 실패한 파일이 있으면 콘솔에 상세 정보 출력
@@ -1697,7 +1713,7 @@ export default function ChatRoomPage() {
       }
     } catch (error) {
       console.error('❌ 사진첩 업로드 실패:', error)
-      showToast(`파일 업로드에 실패했습니다: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
+      showToast(`${t('album.uploadFailed')}: ${error instanceof Error ? error.message : '알 수 없는 오류'}`, 'error')
     } finally {
       setUploadingFile(false)
       setUploadProgress({ current: 0, total: 0, success: 0, failed: 0 })
@@ -1889,7 +1905,7 @@ export default function ChatRoomPage() {
             isMyMessage
               ? msg.isFailed
                 ? 'bg-red-500 text-white rounded-br-md opacity-70'
-                : 'bg-[#0064FF] text-white rounded-br-md'
+                : 'bg-[var(--icon-active)] text-white rounded-br-md'
               : 'bg-secondary text-primary rounded-bl-md'
           } ${msg.isPending ? 'opacity-60' : ''}`}
         >
@@ -1986,7 +2002,7 @@ export default function ChatRoomPage() {
           </Button>
           <div className="flex items-center space-x-3">
             {/* 상대방 아바타 */}
-            <div className="w-10 h-10 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-[var(--icon-active)] rounded-xl flex items-center justify-center">
               <span className="text-white font-medium text-sm">
                 {roomInfo?.name.charAt(0) || '?'}
               </span>
@@ -2050,9 +2066,13 @@ export default function ChatRoomPage() {
                       }}
                       className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
                     >
-                      <span className="text-3xl">📷</span>
+                      <div className="w-12 h-12 rounded-2xl bg-[var(--icon-active)] flex items-center justify-center">
+                        <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
                       <div>
-                        <p className="text-primary font-medium">사진첩</p>
+                        <p className="text-primary font-semibold text-base">{t('album.title')}</p>
                         <p className="text-xs text-secondary mt-1">채팅방 멤버들이 공유한 사진/동영상</p>
                       </div>
                     </button>
@@ -2294,7 +2314,7 @@ export default function ChatRoomPage() {
                 onFocus={handleInputFocus}
                 onKeyPress={handleKeyPress}
                 placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
-                className="w-full px-2.5 md:px-4 py-2 md:py-3 pr-8 md:pr-12 bg-primary border border-divider rounded-lg text-[14px] md:text-base text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[#0064FF] resize-none overflow-y-auto"
+                className="w-full px-2.5 md:px-4 py-2 md:py-3 pr-8 md:pr-12 bg-primary border border-divider rounded-lg text-[14px] md:text-base text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[var(--icon-active)] resize-none overflow-y-auto"
                 disabled={isPasting}
                 rows={1}
                 style={{
@@ -2341,7 +2361,7 @@ export default function ChatRoomPage() {
             disabled={(!message.trim() && previewFiles.length === 0) || isPasting}
             className={`p-2 md:p-3 rounded-full transition-all flex-shrink-0 ${
               (message.trim() || previewFiles.length > 0) && !isPasting
-                ? 'bg-[#0064FF] text-white hover:bg-[#0052CC] active:scale-95'
+                ? 'bg-[var(--icon-active)] text-white hover:opacity-90 active:scale-95'
                 : 'bg-secondary text-secondary cursor-not-allowed'
             }`}
           >
@@ -2364,38 +2384,55 @@ export default function ChatRoomPage() {
         <>
           {/* 배경 오버레이 */}
           <div 
-            className="fixed inset-0 bg-black/80 z-50 animate-fadeIn"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300"
             onClick={() => setIsAlbumOpen(false)}
           />
           
           {/* 사진첩 콘텐츠 */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6">
             <div 
-              className="bg-primary rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl animate-slideDown"
+              className="bg-primary rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col border border-gray-200/30 dark:border-gray-700/30 overflow-hidden transition-all duration-300"
               onClick={(e) => e.stopPropagation()}
             >
               {/* 헤더 */}
-              <div className="flex flex-col border-b border-divider">
-                <div className="flex items-center justify-between px-6 py-4">
-                  <div>
-                    <h2 className="text-xl font-bold text-primary">사진첩</h2>
-                    <p className="text-sm text-secondary mt-1">
-                      {selectedFolderId 
-                        ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || '폴더'} · ${albumPhotos?.length || 0}개`
-                        : `전체 ${albumPhotos?.length || 0}개의 사진/동영상`}
-                    </p>
+              <div className="flex flex-col border-b border-gray-200/30 dark:border-gray-700/30 bg-gradient-to-r from-primary via-primary to-secondary/20">
+                <div className="flex items-center justify-between px-6 py-5">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-10 h-10 rounded-xl bg-[var(--icon-active)] flex items-center justify-center">
+                      <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-primary tracking-tight">{t('album.title')}</h2>
+                      <p className="text-sm text-secondary mt-1.5 font-medium">
+                        {selectedFolderId 
+                          ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || t('album.manageFolders')} · ${albumPhotos?.length || 0}개`
+                          : t('album.totalPhotos').replace('{count}', String(albumPhotos?.length || 0))}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center space-x-2">
                     {/* 선택 모드 버튼 */}
                     <button
                       onClick={toggleSelectionMode}
-                      className={`px-3 py-2 rounded-lg transition-all duration-200 text-sm font-medium ${
+                      className={`p-2.5 md:px-4 md:py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2 ${
                         isSelectionMode 
                           ? 'bg-red-500 text-white hover:bg-red-600' 
-                          : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                          : 'bg-secondary text-primary hover:bg-divider border border-divider'
                       }`}
+                      title={isSelectionMode ? t('album.cancel') : t('album.select')}
                     >
-                      {isSelectionMode ? '취소' : '선택'}
+                      {isSelectionMode ? (
+                        <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      ) : (
+                        <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                      )}
+                      <span className="hidden md:inline text-sm font-semibold">{isSelectionMode ? t('album.cancel') : t('album.select')}</span>
                     </button>
                     
                     {/* 사진첩용 파일 입력 */}
@@ -2409,67 +2446,99 @@ export default function ChatRoomPage() {
                     />
                     <button
                       onClick={() => albumFileInputRef.current?.click()}
-                      className="px-3 py-2 bg-[#007AFF] text-white rounded-lg hover:bg-[#0056CC] transition-all duration-200 text-sm font-medium"
+                      className="p-2.5 md:px-4 md:py-2.5 bg-[var(--icon-active)] text-white rounded-xl hover:opacity-90 transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2"
+                      title={t('album.add')}
                     >
-                      추가
+                      <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      <span className="hidden md:inline text-sm font-semibold">{t('album.add')}</span>
                     </button>
                     <button
                       onClick={() => setIsAlbumOpen(false)}
-                      className="px-3 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all duration-200 text-sm font-medium text-gray-600 dark:text-gray-300"
+                      className="p-2.5 md:px-4 md:py-2.5 hover:bg-secondary rounded-xl transition-all duration-200 text-secondary hover:text-primary border border-divider flex items-center justify-center md:justify-start md:space-x-2"
+                      title={t('common.close')}
                     >
-                      닫기
+                      <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span className="hidden md:inline text-sm font-semibold">{t('common.close')}</span>
                     </button>
                   </div>
                 </div>
                 
                 {/* 모바일 탭 (768px 이하에서만 표시) */}
-                <div className="md:hidden flex border-t border-divider">
+                <div className="md:hidden flex border-t border-gray-200/30 dark:border-gray-700/30 bg-secondary/30">
                   <button
                     onClick={() => setAlbumTab('photos')}
-                    className={`flex-1 py-3 text-center font-medium transition-colors ${
+                    className={`flex-1 py-3.5 text-center transition-all duration-200 relative ${
                       albumTab === 'photos'
-                        ? 'text-[#0064FF] border-b-2 border-[#0064FF]'
-                        : 'text-secondary'
+                        ? 'text-[var(--icon-active)]'
+                        : 'text-secondary hover:text-primary'
                     }`}
                   >
-                    📷 사진 보기
+                    <div className="flex flex-col items-center space-y-1">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      {/* <span className="text-xs font-semibold">{t('album.viewPhotos')}</span> */}
+                    </div>
+                    {albumTab === 'photos' && (
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--icon-active)] rounded-t-full" />
+                    )}
                   </button>
                   <button
                     onClick={() => setAlbumTab('folders')}
-                    className={`flex-1 py-3 text-center font-medium transition-colors ${
+                    className={`flex-1 py-3.5 text-center transition-all duration-200 relative ${
                       albumTab === 'folders'
-                        ? 'text-[#0064FF] border-b-2 border-[#0064FF]'
-                        : 'text-secondary'
+                        ? 'text-[var(--icon-active)]'
+                        : 'text-secondary hover:text-primary'
                     }`}
                   >
-                    📁 폴더 관리
+                    <div className="flex flex-col items-center space-y-1">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                      {/* <span className="text-xs font-semibold">{t('album.manageFolders')}</span> */}
+                    </div>
+                    {albumTab === 'folders' && (
+                      <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-[var(--icon-active)] rounded-t-full" />
+                    )}
                   </button>
                 </div>
               </div>
               
               {/* 선택 모드 액션 바 */}
               {isSelectionMode && (
-                <div className="bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 border-t border-red-200 dark:border-red-800 px-6 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                        <span className="text-sm font-medium text-red-700 dark:text-red-300">
-                          {selectedPhotos.size}
+                <div className="bg-gradient-to-r from-red-50/80 via-pink-50/80 to-red-50/80 dark:from-red-950/40 dark:via-pink-950/40 dark:to-red-950/40 border-t border-red-200/50 dark:border-red-800/50 px-6 py-4 backdrop-blur-sm">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
+                    <div className="flex items-center space-x-5">
+                      <div className="flex items-center space-x-3 bg-white/60 dark:bg-gray-800/60 px-3 md:px-4 py-2 rounded-xl border border-red-200/50 dark:border-red-800/50">
+                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full animate-pulse"></div>
+                        <span className="text-xs md:text-sm font-bold text-red-700 dark:text-red-300">
+                          {selectedPhotos.size}개
                         </span>
                       </div>
-                      <div className="flex items-center space-x-3">
+                      <div className="flex items-center space-x-2">
                         <button
                           onClick={selectAllPhotos}
-                          className="px-3 py-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 text-sm font-medium"
+                          className="p-2 md:px-4 md:py-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-100/60 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 border border-red-200/50 dark:border-red-800/50"
+                          title={t('album.selectAll')}
                         >
-                          전체선택
+                          <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span className="hidden md:inline ml-2 text-sm font-semibold">{t('album.selectAll')}</span>
                         </button>
                         <button
                           onClick={clearSelection}
-                          className="px-3 py-1 text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 text-sm font-medium"
+                          className="p-2 md:px-4 md:py-2 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-100/60 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 border border-red-200/50 dark:border-red-800/50"
+                          title={t('album.clearSelection')}
                         >
-                          선택해제
+                          <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                          <span className="hidden md:inline ml-2 text-sm font-semibold">{t('album.clearSelection')}</span>
                         </button>
                       </div>
                     </div>
@@ -2477,24 +2546,32 @@ export default function ChatRoomPage() {
                       <button
                         onClick={downloadSelectedPhotos}
                         disabled={selectedPhotos.size === 0 || isDownloading}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        className={`p-2.5 md:px-5 md:py-2.5 rounded-xl transition-all duration-200 flex items-center space-x-2 ${
                           selectedPhotos.size > 0 && !isDownloading
-                            ? 'bg-blue-500 text-white hover:bg-blue-600'
+                            ? 'bg-[var(--icon-active)] text-white hover:opacity-90'
                             : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
+                        title={isDownloading ? t('album.downloading') : t('album.download')}
                       >
-                        {isDownloading ? '다운로드 중...' : '다운로드'}
+                        <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        <span className="hidden md:inline text-sm font-semibold">{isDownloading ? t('album.downloading') : t('album.download')}</span>
                       </button>
                       <button
                         onClick={deleteSelectedPhotos}
                         disabled={selectedPhotos.size === 0}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+                        className={`p-2.5 md:px-5 md:py-2.5 rounded-xl transition-all duration-200 flex items-center space-x-2 ${
                           selectedPhotos.size > 0
-                            ? 'bg-red-500 text-white hover:bg-red-600'
+                            ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
                             : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
+                        title={t('album.delete')}
                       >
-                        삭제
+                        <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        <span className="hidden md:inline text-sm font-semibold">{t('album.delete')}</span>
                       </button>
                     </div>
                   </div>
@@ -2504,10 +2581,10 @@ export default function ChatRoomPage() {
               {/* 본문 */}
               <div className="flex-1 flex overflow-hidden">
                 {/* 왼쪽: 폴더 리스트 (데스크톱 항상 표시, 모바일은 폴더 탭일 때만) */}
-                <div className={`w-full md:w-64 md:border-r border-divider overflow-y-auto bg-secondary/30 ${
+                <div className={`w-full md:w-72 md:border-r border-gray-200/30 dark:border-gray-700/30 overflow-y-auto bg-gradient-to-b from-secondary/20 to-transparent ${
                   albumTab === 'folders' ? 'block' : 'hidden md:block'
                 }`}>
-                  <div className="p-4 space-y-2">
+                  <div className="p-5 space-y-2">
                     {/* 전체 보기 */}
                     <button
                       onClick={() => {
@@ -2515,14 +2592,22 @@ export default function ChatRoomPage() {
                         loadAlbum(null)
                         setAlbumTab('photos') // 모바일에서 사진 탭으로 전환
                       }}
-                      className={`w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 ${
+                      className={`w-full px-4 py-3.5 rounded-xl text-left transition-all duration-200 flex items-center space-x-3 group ${
                         selectedFolderId === null
-                          ? 'bg-[#0064FF] text-white'
-                          : 'hover:bg-secondary text-primary'
+                          ? 'bg-[var(--icon-active)] text-white'
+                          : 'hover:bg-secondary text-primary border border-transparent hover:border-divider'
                       }`}
                     >
-                      <span className="text-xl">📁</span>
-                      <span className="font-medium">전체 보기</span>
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-200 ${
+                        selectedFolderId === null
+                          ? 'bg-white/20'
+                          : 'bg-secondary group-hover:bg-divider'
+                      }`}>
+                        <svg className={`w-5 h-5 ${selectedFolderId === null ? 'text-white' : 'text-primary'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                      </div>
+                      <span className="font-semibold">{t('album.allPhotos')}</span>
                     </button>
 
                     {/* 폴더 트리 */}
@@ -2553,8 +2638,8 @@ export default function ChatRoomPage() {
                               setNewFolderName('')
                             }
                           }}
-                          placeholder="폴더 이름 입력"
-                          className="w-full px-3 py-2 bg-primary border-2 border-[#0064FF] rounded-lg text-sm focus:outline-none text-primary"
+                          placeholder={t('album.folderNamePlaceholder')}
+                          className="w-full px-4 py-3 bg-primary border-2 border-[var(--icon-active)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--icon-active)]/50 focus:border-[var(--icon-active)] text-primary font-medium"
                           autoFocus
                         />
                       </div>
@@ -2564,31 +2649,39 @@ export default function ChatRoomPage() {
                           setSelectedFolderId(null)
                           setIsCreatingFolder(true)
                         }}
-                        className="w-full px-4 py-3 rounded-lg text-left transition-colors flex items-center space-x-3 hover:bg-secondary text-secondary border-2 border-dashed border-divider"
+                        className="w-full px-4 py-3.5 rounded-xl text-left transition-all duration-200 flex items-center space-x-3 hover:bg-secondary text-secondary border-2 border-dashed border-divider hover:border-blue-400/50 group"
                       >
-                        <span className="text-xl">➕</span>
-                        <span className="font-medium">새 폴더</span>
+                        <div className="w-8 h-8 rounded-lg bg-secondary group-hover:bg-divider flex items-center justify-center transition-all duration-200">
+                          <svg className="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                          </svg>
+                        </div>
+                        <span className="font-semibold">{t('album.newFolder')}</span>
                       </button>
                     )}
                   </div>
                 </div>
 
                 {/* 오른쪽: 사진 그리드 (데스크톱 항상 표시, 모바일은 사진 탭일 때만) */}
-                <div className={`flex-1 overflow-y-auto p-4 md:p-6 ${
+                <div className={`flex-1 overflow-y-auto p-5 md:p-6 ${
                   albumTab === 'photos' ? 'block' : 'hidden md:block'
                 }`}>
                 {!albumPhotos || albumPhotos.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center h-full">
-                    <span className="text-6xl mb-4">📷</span>
-                    <p className="text-primary font-medium mb-2">
-                      {selectedFolderId ? '이 폴더가 비어있습니다' : '사진첩이 비어있습니다'}
+                  <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
+                    <div className="w-24 h-24 rounded-3xl flex items-center justify-center mb-6">
+                      <svg className="w-12 h-12 text-secondary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                    </div>
+                    <p className="text-primary font-bold text-lg mb-2">
+                      {selectedFolderId ? t('album.folderEmpty') : t('album.albumEmpty')}
                     </p>
-                    <p className="text-secondary text-sm">
-                      {selectedFolderId ? '이 폴더에 첫 번째 사진을 추가해보세요!' : '첫 번째 사진을 추가해보세요!'}
+                    <p className="text-secondary text-sm text-center max-w-sm">
+                      {selectedFolderId ? t('album.folderEmptyMessage') : t('album.albumEmptyMessage')}
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                     {albumPhotos?.map((photo) => {
                       const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${photo.fileUrl}`
                       const thumbnailUrl = photo.thumbnailUrl 
@@ -2598,14 +2691,14 @@ export default function ChatRoomPage() {
                       return (
                         <div
                           key={photo.id}
-                          className={`aspect-square bg-secondary rounded-lg overflow-hidden transition-all duration-200 group relative ${
+                          className={`aspect-square bg-secondary rounded-2xl overflow-hidden transition-all duration-300 group relative ${
                             isSelectionMode 
-                              ? 'cursor-pointer hover:scale-[1.02]' 
-                              : 'cursor-pointer hover:opacity-90'
+                              ? 'cursor-pointer hover:scale-[1.03] active:scale-[0.98]' 
+                              : 'cursor-pointer hover:opacity-95'
                           } ${
                             selectedPhotos.has(photo.id) 
-                              ? 'ring-4 ring-[#007AFF] ring-opacity-60 shadow-xl scale-[1.02]' 
-                              : 'hover:shadow-lg'
+                              ? 'ring-4 ring-[var(--icon-active)] ring-opacity-70 scale-[1.03]' 
+                              : ''
                           }`}
                           onClick={() => {
                             if (isSelectionMode) {
@@ -2618,13 +2711,15 @@ export default function ChatRoomPage() {
                           {/* 선택 체크박스 */}
                           {isSelectionMode && (
                             <div className="absolute top-3 left-3 z-10">
-                              <div className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center transition-all duration-200 shadow-lg ${
+                              <div className={`w-9 h-9 rounded-xl border-2 flex items-center justify-center transition-all duration-200 backdrop-blur-sm ${
                                 selectedPhotos.has(photo.id)
-                                  ? 'bg-[#007AFF] border-[#007AFF]'
-                                  : 'bg-white/90 dark:bg-gray-800/90 border-gray-300 dark:border-gray-600'
+                                  ? 'bg-[var(--icon-active)] border-[var(--icon-active)]'
+                                  : 'bg-white/95 dark:bg-gray-800/95 border-gray-300 dark:border-gray-600'
                               }`}>
                                 {selectedPhotos.has(photo.id) && (
-                                  <span className="text-white text-sm font-bold">✓</span>
+                                  <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                  </svg>
                                 )}
                               </div>
                             </div>
@@ -2649,22 +2744,24 @@ export default function ChatRoomPage() {
                           )}
                           
                           {/* 삭제 버튼 (본인이 업로드한 것만) */}
-                          {photo.uploadedBy === currentUser?.id && (
+                          {photo.uploadedBy === currentUser?.id && !isSelectionMode && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation()
-                                if (confirm('이 사진을 삭제하시겠습니까?')) {
+                                if (confirm(t('album.deleteConfirm'))) {
                                   apiClient.delete(`/chat/album/${photo.id}`)
                                     .then(() => {
-                                      showToast('삭제되었습니다', 'success')
+                                      showToast(t('album.deleted'), 'success')
                                       loadAlbum(selectedFolderId)
                                     })
-                                    .catch(() => showToast('삭제 실패', 'error'))
+                                    .catch(() => showToast(t('album.deleteFailed'), 'error'))
                                 }
                               }}
-                              className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              className="absolute top-3 right-3 bg-red-500/90 hover:bg-red-600 text-white rounded-xl w-9 h-9 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 backdrop-blur-sm"
                             >
-                              ✕
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
                             </button>
                           )}
                         </div>

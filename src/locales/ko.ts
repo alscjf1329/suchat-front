@@ -162,6 +162,41 @@ const ko: TranslationKeys = {
     required: '필수 입력 항목입니다.',
     invalidEmail: '올바른 이메일 주소를 입력하세요.',
     passwordTooShort: '비밀번호는 최소 6자 이상이어야 합니다.'
+  },
+  
+  album: {
+    title: '사진첩',
+    add: '추가',
+    select: '선택',
+    cancel: '취소',
+    selectAll: '전체선택',
+    clearSelection: '선택해제',
+    download: '다운로드',
+    downloading: '다운로드 중...',
+    delete: '삭제',
+    deleteConfirm: '이 사진을 삭제하시겠습니까?',
+    deleted: '삭제되었습니다',
+    deleteFailed: '삭제 실패',
+    viewPhotos: '사진 보기',
+    manageFolders: '폴더 관리',
+    allPhotos: '전체 보기',
+    totalPhotos: '전체 {count}개의 사진/동영상',
+    folderEmpty: '이 폴더가 비어있습니다',
+    albumEmpty: '사진첩이 비어있습니다',
+    folderEmptyMessage: '이 폴더에 첫 번째 사진을 추가해보세요!',
+    albumEmptyMessage: '첫 번째 사진을 추가해보세요!',
+    newFolder: '새 폴더',
+    folderNamePlaceholder: '폴더 이름 입력',
+    folderCreated: '폴더가 생성되었습니다',
+    folderCreateFailed: '폴더 생성에 실패했습니다',
+    folderDeleted: '폴더가 삭제되었습니다',
+    folderDeleteFailed: '폴더 삭제 실패',
+    loadFailed: '사진첩을 불러올 수 없습니다.',
+    uploadSuccess: '파일을 사진첩에 추가했습니다',
+    uploadFailed: '파일 업로드에 실패했습니다',
+    downloadSuccess: '사진을 다운로드했습니다',
+    downloadFailed: '다운로드에 실패했습니다',
+    downloadProgress: '{completed}/{total}개 사진을 다운로드했습니다'
   }
 }
 

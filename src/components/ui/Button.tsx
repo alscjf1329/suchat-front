@@ -21,7 +21,7 @@ export default function Button({
   onClick,
   className = ''
 }: ButtonProps) {
-  const baseClasses = "font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+  const baseClasses = "font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center"
   
   const variantClasses = {
     primary: "bg-[#0064FF] hover:bg-[#0052CC] disabled:bg-[#0064FF]/50 text-white focus:ring-[#0064FF] shadow-md hover:shadow-lg",

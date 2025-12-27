@@ -162,6 +162,41 @@ const ja: TranslationKeys = {
     required: 'この項目は必須です。',
     invalidEmail: '有効なメールアドレスを入力してください。',
     passwordTooShort: 'パスワードは6文字以上である必要があります。'
+  },
+  
+  album: {
+    title: 'アルバム',
+    add: '追加',
+    select: '選択',
+    cancel: 'キャンセル',
+    selectAll: 'すべて選択',
+    clearSelection: '選択解除',
+    download: 'ダウンロード',
+    downloading: 'ダウンロード中...',
+    delete: '削除',
+    deleteConfirm: 'この写真を削除しますか？',
+    deleted: '削除されました',
+    deleteFailed: '削除に失敗しました',
+    viewPhotos: '写真を見る',
+    manageFolders: 'フォルダ管理',
+    allPhotos: 'すべて表示',
+    totalPhotos: '合計 {count} 枚の写真/動画',
+    folderEmpty: 'このフォルダは空です',
+    albumEmpty: 'アルバムが空です',
+    folderEmptyMessage: 'このフォルダに最初の写真を追加しましょう！',
+    albumEmptyMessage: '最初の写真を追加しましょう！',
+    newFolder: '新しいフォルダ',
+    folderNamePlaceholder: 'フォルダ名を入力',
+    folderCreated: 'フォルダが作成されました',
+    folderCreateFailed: 'フォルダの作成に失敗しました',
+    folderDeleted: 'フォルダが削除されました',
+    folderDeleteFailed: 'フォルダの削除に失敗しました',
+    loadFailed: 'アルバムを読み込めませんでした。',
+    uploadSuccess: 'ファイルをアルバムに追加しました',
+    uploadFailed: 'ファイルのアップロードに失敗しました',
+    downloadSuccess: '写真をダウンロードしました',
+    downloadFailed: 'ダウンロードに失敗しました',
+    downloadProgress: '{completed}/{total} 枚の写真をダウンロードしました'
   }
 }
 
