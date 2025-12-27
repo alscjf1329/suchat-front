@@ -107,7 +107,12 @@ export default function ChatRoomPage() {
       // 일괄 삭제 API 호출
       const response = await apiClient.delete('/chat/album/batch', { albumIds: photoIds })
       
-      const { deleted, failed } = response.data || { deleted: 0, failed: 0 }
+      // apiClient.request는 response.json()을 그대로 반환
+      // NestJS 컨트롤러가 { deleted, failed }를 반환하면 response가 직접 { deleted, failed } 형식
+      // ApiResponse 형식으로 감싸져 있을 수도 있으므로 둘 다 확인
+      const result = response.data || response
+      const deleted = result?.deleted ?? 0
+      const failed = result?.failed ?? 0
       
       // UI 업데이트
       setAlbumPhotos(prev => prev.filter(photo => !selectedPhotos.has(photo.id)))

@@ -39,7 +39,7 @@ function Toast({
 
   return (
     <div 
-      className="fixed top-4 left-1/2 z-50 pointer-events-none"
+      className="fixed top-4 left-1/2 z-[9999] pointer-events-none"
       style={{ 
         transform: 'translateX(-50%)',
         willChange: 'transform'
