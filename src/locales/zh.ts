@@ -179,7 +179,7 @@ const zh: TranslationKeys = {
     deleteFailed: '删除失败',
     viewPhotos: '查看照片',
     manageFolders: '管理文件夹',
-    allPhotos: '全部照片',
+    allPhotos: '聊天室相册',
     totalPhotos: '共 {count} 张照片/视频',
     folderEmpty: '此文件夹为空',
     albumEmpty: '相册为空',

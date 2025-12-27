@@ -179,7 +179,7 @@ const ko: TranslationKeys = {
     deleteFailed: '삭제 실패',
     viewPhotos: '사진 보기',
     manageFolders: '폴더 관리',
-    allPhotos: '전체 보기',
+    allPhotos: '채팅방 사진첩',
     totalPhotos: '전체 {count}개의 사진/동영상',
     folderEmpty: '이 폴더가 비어있습니다',
     albumEmpty: '사진첩이 비어있습니다',

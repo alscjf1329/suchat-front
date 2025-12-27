@@ -179,7 +179,7 @@ const ja: TranslationKeys = {
     deleteFailed: '削除に失敗しました',
     viewPhotos: '写真を見る',
     manageFolders: 'フォルダ管理',
-    allPhotos: 'すべて表示',
+    allPhotos: 'チャットルームアルバム',
     totalPhotos: '合計 {count} 枚の写真/動画',
     folderEmpty: 'このフォルダは空です',
     albumEmpty: 'アルバムが空です',

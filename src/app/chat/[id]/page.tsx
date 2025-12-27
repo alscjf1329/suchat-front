@@ -87,8 +87,12 @@ export default function ChatRoomPage() {
   }, [])
 
   const selectAllPhotos = useCallback(() => {
-    setSelectedPhotos(new Set(albumPhotos.map(photo => photo.id)))
-  }, [albumPhotos])
+    // 루트 폴더(채팅방 사진첩)에서는 선택 가능한 사진만 선택 (fromMessage가 false인 것만)
+    const selectablePhotos = selectedFolderId === null
+      ? albumPhotos.filter(photo => !photo.fromMessage)
+      : albumPhotos
+    setSelectedPhotos(new Set(selectablePhotos.map(photo => photo.id)))
+  }, [albumPhotos, selectedFolderId])
 
   const clearSelection = useCallback(() => {
     setSelectedPhotos(new Set())
@@ -103,6 +107,12 @@ export default function ChatRoomPage() {
 
   const deleteSelectedPhotos = useCallback(async () => {
     if (selectedPhotos.size === 0) return
+
+    // 루트 폴더(채팅방 사진첩)에서는 삭제 불가
+    if (selectedFolderId === null) {
+      showToast('채팅방 사진첩에서는 삭제할 수 없습니다', 'info')
+      return
+    }
 
     // 메시지에서 온 사진은 제외 (fromMessage가 true인 것 제외)
     const deletablePhotos = albumPhotos.filter(photo => 
@@ -1715,6 +1725,15 @@ export default function ChatRoomPage() {
     const files = e.target.files
     if (!files || files.length === 0 || !currentUser || !chatId) return
 
+    // 루트 폴더(채팅방 사진첩)에서는 추가 불가
+    if (selectedFolderId === null) {
+      showToast('채팅방 사진첩에는 직접 추가할 수 없습니다', 'info')
+      if (albumFileInputRef.current) {
+        albumFileInputRef.current.value = ''
+      }
+      return
+    }
+
     const fileArray = Array.from(files)
     console.log(`📷 사진첩에 ${fileArray.length}개 파일 업로드 시작`)
 
@@ -2518,7 +2537,7 @@ export default function ChatRoomPage() {
                       <p className="text-sm text-secondary mt-1.5 font-medium">
                         {selectedFolderId 
                           ? `${albumFolders.find(f => f.id === selectedFolderId)?.name || t('album.manageFolders')} · ${albumTotal || 0}개`
-                          : t('album.totalPhotos').replace('{count}', String(albumTotal || 0))}
+                          : `${t('album.allPhotos')} · ${albumTotal || 0}개`}
                       </p>
                     </div>
                   </div>
@@ -2556,8 +2575,13 @@ export default function ChatRoomPage() {
                     />
                     <button
                       onClick={() => albumFileInputRef.current?.click()}
-                      className="p-2.5 md:px-4 md:py-2.5 bg-[var(--icon-active)] text-white rounded-xl hover:opacity-90 transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2"
-                      title={t('album.add')}
+                      disabled={selectedFolderId === null}
+                      className={`p-2.5 md:px-4 md:py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2 ${
+                        selectedFolderId === null
+                          ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
+                          : 'bg-[var(--icon-active)] text-white hover:opacity-90'
+                      }`}
+                      title={selectedFolderId === null ? '채팅방 사진첩에는 직접 추가할 수 없습니다' : t('album.add')}
                     >
                       <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -2670,13 +2694,13 @@ export default function ChatRoomPage() {
                       </button>
                       <button
                         onClick={deleteSelectedPhotos}
-                        disabled={selectedPhotos.size === 0}
+                        disabled={selectedPhotos.size === 0 || selectedFolderId === null}
                         className={`p-2.5 md:px-5 md:py-2.5 rounded-xl transition-all duration-200 flex items-center space-x-2 ${
-                          selectedPhotos.size > 0
+                          selectedPhotos.size > 0 && selectedFolderId !== null
                             ? 'bg-gradient-to-r from-red-500 to-red-600 text-white hover:from-red-600 hover:to-red-700'
                             : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
-                        title={t('album.delete')}
+                        title={selectedFolderId === null ? '채팅방 사진첩에서는 삭제할 수 없습니다' : t('album.delete')}
                       >
                         <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />

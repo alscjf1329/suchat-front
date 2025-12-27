@@ -179,7 +179,7 @@ const en: TranslationKeys = {
     deleteFailed: 'Delete failed',
     viewPhotos: 'View Photos',
     manageFolders: 'Manage Folders',
-    allPhotos: 'All Photos',
+    allPhotos: 'Chat Room Album',
     totalPhotos: 'Total {count} photos/videos',
     folderEmpty: 'This folder is empty',
     albumEmpty: 'Album is empty',
