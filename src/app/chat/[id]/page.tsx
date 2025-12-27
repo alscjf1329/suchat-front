@@ -99,9 +99,13 @@ export default function ChatRoomPage() {
   const deleteSelectedPhotos = useCallback(async () => {
     if (selectedPhotos.size === 0) return
 
+    const photoCount = selectedPhotos.size
+    const photoIds = Array.from(selectedPhotos)
+    const currentFolderId = selectedFolderId
+
     try {
-      const deletePromises = Array.from(selectedPhotos).map(photoId => 
-        apiClient.delete(`/chat/album/${chatId}/photos/${photoId}`)
+      const deletePromises = photoIds.map(photoId => 
+        apiClient.delete(`/chat/album/${photoId}`)
       )
       await Promise.all(deletePromises)
       
@@ -109,12 +113,29 @@ export default function ChatRoomPage() {
       setSelectedPhotos(new Set())
       setIsSelectionMode(false)
       
-      // showToast(`${selectedPhotos.size}개 사진이 삭제되었습니다`, 'success')
+      showToast(`${photoCount}개 사진이 삭제되었습니다`, 'success')
+      
+      // 사진첩 새로고침 (loadAlbum은 나중에 선언되므로 직접 호출)
+      setTimeout(async () => {
+        try {
+          let response
+          if (currentFolderId) {
+            response = await apiClient.get(`/chat/album/${chatId}/folders/${currentFolderId}`)
+          } else {
+            response = await apiClient.get(`/chat/album/${chatId}`)
+          }
+          const photos = response.data || []
+          const filteredPhotos = photos.filter((photo: any) => photo.type === 'image' || photo.type === 'video')
+          setAlbumPhotos(filteredPhotos)
+        } catch (error) {
+          console.error('사진첩 새로고침 실패:', error)
+        }
+      }, 100)
     } catch (error) {
       console.error('사진 삭제 실패:', error)
-      // showToast('사진 삭제에 실패했습니다', 'error')
+      showToast('사진 삭제에 실패했습니다', 'error')
     }
-  }, [selectedPhotos, chatId])
+  }, [selectedPhotos, showToast, selectedFolderId, chatId])
 
   const downloadSelectedPhotos = useCallback(async () => {
     if (selectedPhotos.size === 0 || isDownloading) return
