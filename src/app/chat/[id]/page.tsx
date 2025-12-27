@@ -104,16 +104,22 @@ export default function ChatRoomPage() {
     const currentFolderId = selectedFolderId
 
     try {
-      const deletePromises = photoIds.map(photoId => 
-        apiClient.delete(`/chat/album/${photoId}`)
-      )
-      await Promise.all(deletePromises)
+      // 일괄 삭제 API 호출
+      const response = await apiClient.delete('/chat/album/batch', { albumIds: photoIds })
       
+      const { deleted, failed } = response.data || { deleted: 0, failed: 0 }
+      
+      // UI 업데이트
       setAlbumPhotos(prev => prev.filter(photo => !selectedPhotos.has(photo.id)))
       setSelectedPhotos(new Set())
       setIsSelectionMode(false)
       
-      showToast(`${photoCount}개 사진이 삭제되었습니다`, 'success')
+      // 결과 메시지 표시
+      if (failed > 0) {
+        showToast(`${deleted}개 삭제 완료, ${failed}개 실패 (본인이 업로드한 파일만 삭제 가능)`, 'info')
+      } else {
+        showToast(`${deleted}개 사진이 삭제되었습니다`, 'success')
+      }
       
       // 사진첩 새로고침 (loadAlbum은 나중에 선언되므로 직접 호출)
       setTimeout(async () => {
