@@ -53,6 +53,11 @@ export default function ChatRoomPage() {
   const [albumPhotos, setAlbumPhotos] = useState<any[]>([])
   const [albumFolders, setAlbumFolders] = useState<any[]>([])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
+  const [albumPage, setAlbumPage] = useState(0)
+  const [albumHasMore, setAlbumHasMore] = useState(true)
+  const [albumLoading, setAlbumLoading] = useState(false)
+  const [albumTotal, setAlbumTotal] = useState(0)
+  const albumScrollRef = useRef<HTMLDivElement>(null)
   const [isCreatingFolder, setIsCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
@@ -970,40 +975,79 @@ export default function ChatRoomPage() {
     }
   }
 
-  // 사진첩 불러오기
-  const loadAlbum = async (folderId?: string | null) => {
-    if (!chatId) return
+  // 사진첩 불러오기 (페이지네이션 지원)
+  const loadAlbum = async (folderId?: string | null, page: number = 0, append: boolean = false) => {
+    if (!chatId || albumLoading) return
+    
     try {
-      console.log('📷 사진첩 로드 시작:', chatId, 'folderId:', folderId)
+      setAlbumLoading(true)
+      const limit = 30
+      const offset = page * limit
       
       let response
       if (folderId) {
         // 특정 폴더의 사진만 조회
-        response = await apiClient.get(`/chat/album/${chatId}/folders/${folderId}`)
+        response = await apiClient.get(`/chat/album/${chatId}/folders/${folderId}?limit=${limit}&offset=${offset}`)
       } else {
         // 전체 사진 조회 (루트만 또는 전체)
-        response = await apiClient.get(`/chat/album/${chatId}`)
+        response = await apiClient.get(`/chat/album/${chatId}?limit=${limit}&offset=${offset}`)
       }
       
-      console.log('📷 사진첩 응답:', response)
+      // 백엔드가 { albums, total } 형식으로 반환
+      const result = response.data || response
       
-      // response가 배열이면 바로 사용, data 안에 있으면 data 사용
-      const photos = Array.isArray(response) ? response : (response.data || [])
+      // 백엔드가 { albums, total } 형식으로 반환하는지 확인
+      let photos: any[] = []
+      let total = 0
+      
+      if (result && typeof result === 'object' && 'albums' in result) {
+        // { albums, total } 형식
+        photos = result.albums || []
+        total = result.total || 0
+      } else if (Array.isArray(result)) {
+        // 배열 형식 (이전 버전 호환)
+        photos = result
+        total = result.length
+      }
       
       // folderId가 null이면 루트 폴더의 사진만 필터링
       const filteredPhotos = folderId === null 
         ? photos.filter((p: any) => !p.folderId)
         : photos
       
-      console.log('📷 최종 사진 배열:', filteredPhotos.length, '개')
+      if (append) {
+        setAlbumPhotos(prev => [...prev, ...filteredPhotos])
+      } else {
+        setAlbumPhotos(filteredPhotos)
+      }
       
-      setAlbumPhotos(filteredPhotos)
+      setAlbumTotal(total)
+      setAlbumHasMore(filteredPhotos.length === limit && (offset + filteredPhotos.length) < total)
+      setAlbumPage(page)
     } catch (error) {
       console.error('❌ 사진첩 로드 실패:', error)
-      setAlbumPhotos([])
+      if (!append) {
+        setAlbumPhotos([])
+      }
+      setAlbumHasMore(false)
       showToast(t('album.loadFailed'), 'error')
+    } finally {
+      setAlbumLoading(false)
     }
   }
+  
+  // 사진첩 초기 로드 (페이지 리셋)
+  const loadAlbumInitial = useCallback(async (folderId?: string | null) => {
+    setAlbumPage(0)
+    setAlbumHasMore(true)
+    await loadAlbum(folderId, 0, false)
+  }, [chatId])
+  
+  // 사진첩 다음 페이지 로드
+  const loadAlbumNext = useCallback(async () => {
+    if (!albumHasMore || albumLoading) return
+    await loadAlbum(selectedFolderId, albumPage + 1, true)
+  }, [selectedFolderId, albumPage, albumHasMore, albumLoading, chatId])
 
   // 폴더 생성
   const createFolder = async (parentId?: string) => {
@@ -1089,7 +1133,7 @@ export default function ChatRoomPage() {
               <button
                 onClick={() => {
                   setSelectedFolderId(folder.id)
-                  loadAlbum(folder.id)
+                  loadAlbumInitial(folder.id)
                   setAlbumTab('photos') // 모바일에서 사진 탭으로 전환
                 }}
                 className="flex items-center space-x-3 flex-1 min-w-0"
@@ -1143,7 +1187,7 @@ export default function ChatRoomPage() {
                           showToast(t('album.folderDeleted'), 'success')
                           setSelectedFolderId(null)
                           loadFolders()
-                          loadAlbum(null)
+                          loadAlbumInitial(null)
                         })
                         .catch(() => showToast(t('album.folderDeleteFailed'), 'error'))
                     }
@@ -1737,7 +1781,7 @@ export default function ChatRoomPage() {
       }
       
       // 사진첩 새로고침
-      await loadAlbum(selectedFolderId)
+      await loadAlbumInitial(selectedFolderId)
 
       // 파일 입력 초기화
       if (albumFileInputRef.current) {
@@ -2691,9 +2735,20 @@ export default function ChatRoomPage() {
                 </div>
 
                 {/* 오른쪽: 사진 그리드 (데스크톱 항상 표시, 모바일은 사진 탭일 때만) */}
-                <div className={`flex-1 overflow-y-auto p-5 md:p-6 ${
-                  albumTab === 'photos' ? 'block' : 'hidden md:block'
-                }`}>
+                <div 
+                  ref={albumScrollRef}
+                  className={`flex-1 overflow-y-auto p-5 md:p-6 ${
+                    albumTab === 'photos' ? 'block' : 'hidden md:block'
+                  }`}
+                  onScroll={(e) => {
+                    const target = e.currentTarget
+                    const scrollBottom = target.scrollHeight - target.scrollTop - target.clientHeight
+                    // 스크롤이 하단 200px 이내에 도달하면 다음 페이지 로드
+                    if (scrollBottom < 200 && albumHasMore && !albumLoading) {
+                      loadAlbumNext()
+                    }
+                  }}
+                >
                 {!albumPhotos || albumPhotos.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
                     <div className="w-24 h-24 rounded-3xl flex items-center justify-center mb-6">
@@ -2709,6 +2764,7 @@ export default function ChatRoomPage() {
                     </p>
                   </div>
                 ) : (
+                  <>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                     {albumPhotos?.map((photo) => {
                       const fileUrl = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}${photo.fileUrl}`
@@ -2780,7 +2836,7 @@ export default function ChatRoomPage() {
                                   apiClient.delete(`/chat/album/${photo.id}`)
                                     .then(() => {
                                       showToast(t('album.deleted'), 'success')
-                                      loadAlbum(selectedFolderId)
+                                      loadAlbumInitial(selectedFolderId)
                                     })
                                     .catch(() => showToast(t('album.deleteFailed'), 'error'))
                                 }
@@ -2794,8 +2850,21 @@ export default function ChatRoomPage() {
                           )}
                         </div>
                       )
-                    })}
+                    })} 
                   </div>
+                  {/* 로딩 인디케이터 */}
+                  {albumLoading && (
+                    <div className="flex justify-center py-4">
+                      <div className="text-secondary text-sm">로딩 중...</div>
+                    </div>
+                  )}
+                  {/* 더 이상 없음 표시 */}
+                  {!albumHasMore && albumPhotos.length > 0 && (
+                    <div className="flex justify-center py-4">
+                      <div className="text-secondary text-sm">모든 사진을 불러왔습니다</div>
+                    </div>
+                  )}
+                  </>
                 )}
                 </div>
               </div>
