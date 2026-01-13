@@ -10,6 +10,7 @@ import { apiClient } from '@/lib/api'
 import socketClient, { Message as SocketMessage, ChatRoom } from '@/lib/socket'
 import { clearChatNotifications } from '@/lib/push'
 import { detectDeviceType } from '@/lib/device'
+import ChatSchedule from '@/components/chat/ChatSchedule'
 
 export default function ChatRoomPage() {
   const { t } = useTranslation()
@@ -67,6 +68,9 @@ export default function ChatRoomPage() {
   const [isSelectionMode, setIsSelectionMode] = useState(false)
   const [selectedPhotos, setSelectedPhotos] = useState<Set<string>>(new Set())
   const [isDownloading, setIsDownloading] = useState(false)
+
+  // 일정 모달 상태
+  const [isScheduleOpen, setIsScheduleOpen] = useState(false)
 
   // 모바일 사진첩 선택 모드 함수들
   const toggleSelectionMode = useCallback(() => {
@@ -2208,6 +2212,20 @@ export default function ChatRoomPage() {
                     
                     <button
                       onClick={() => {
+                        setIsScheduleOpen(true)
+                        setIsMenuOpen(false)
+                      }}
+                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
+                    >
+                      <span className="text-3xl">📅</span>
+                      <div>
+                        <p className="text-primary font-semibold text-base">{t('schedule.title')}</p>
+                        <p className="text-xs text-secondary mt-1">채팅방 인원끼리 일정 공유</p>
+                      </div>
+                    </button>
+                    
+                    <button
+                      onClick={() => {
                         setIsMenuOpen(false)
                         showToast('준비 중인 기능입니다.', 'info')
                       }}
@@ -2940,6 +2958,19 @@ export default function ChatRoomPage() {
           </div>
         </>
       )}
+
+      {/* 일정 모달 */}
+      <ChatSchedule
+        chatId={chatId}
+        isOpen={isScheduleOpen}
+        onClose={() => setIsScheduleOpen(false)}
+        showToast={showToast}
+        roomParticipants={roomInfo?.participants?.map((p: any) => ({
+          id: p.id || p,
+          name: p.name || '알 수 없음',
+          email: p.email || '',
+        })) || []}
+      />
     </div>
   )
 }

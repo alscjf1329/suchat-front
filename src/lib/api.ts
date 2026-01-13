@@ -366,6 +366,16 @@ class ApiClient {
     });
   }
 
+  // 범용 PUT 요청
+  async put<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    const authHeaders = this.getAuthHeaders();
+    return this.request<T>(endpoint, {
+      method: 'PUT',
+      headers: authHeaders,
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
   // 범용 DELETE 요청
   async delete<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {

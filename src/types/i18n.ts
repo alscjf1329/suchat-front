@@ -13,6 +13,7 @@ export interface TranslationKeys {
     loading: string
     error: string
     success: string
+    optional: string
   }
   
   // 로그인 페이지
@@ -208,11 +209,67 @@ export interface TranslationKeys {
     downloadFailed: string
     downloadProgress: string
   }
+  
+  // 일정
+  schedule: {
+    title: string
+    create: string
+    edit: string
+    empty: string
+    emptyMessage: string
+    titlePlaceholder: string
+    memoPlaceholder: string
+    startDate: string
+    endDate: string
+    startDateTime: string
+    endDateTime: string
+    allDay: string
+    scheduleCount: string
+    participants: string
+    createdBy: string
+    loadFailed: string
+    fillRequired: string
+    titleRequired: string
+    titleTooShort: string
+    titleTooLong: string
+    startDateRequired: string
+    invalidStartDate: string
+    invalidEndDate: string
+    endDateBeforeStart: string
+    created: string
+    createFailed: string
+    updated: string
+    updateFailed: string
+    deleted: string
+    deleteFailed: string
+    deleteConfirm: string
+    notificationSettings: string
+    notification: string
+    notificationDateTime: string
+    eventTime: string
+    before5min: string
+    before10min: string
+    before15min: string
+    before30min: string
+    before1hour: string
+    before2hour: string
+    before1day: string
+    repeatInterval: string
+    repeatCount: string
+    repeatCountPlaceholder: string
+    interval5min: string
+    interval10min: string
+    interval15min: string
+    interval30min: string
+    interval1hour: string
+    interval2hour: string
+    unknown: string
+  }
 }
 
 export interface I18nContextType {
   language: Language
   setLanguage: (language: Language) => void
-  t: (key: string) => string
+  t: (key: string, params?: Record<string, string | number>) => string
   availableLanguages: Language[]
 }

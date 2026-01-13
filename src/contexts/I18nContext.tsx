@@ -24,7 +24,7 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   }, [language])
 
   // 중첩된 객체 키를 점 표기법으로 접근하는 함수
-  const t = (key: string): string => {
+  const t = (key: string, params?: Record<string, string | number>): string => {
     const keys = key.split('.')
     let value: any = translations[language]
     
@@ -38,7 +38,16 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    return typeof value === 'string' ? value : key
+    let result = typeof value === 'string' ? value : key
+    
+    // 파라미터가 있으면 치환
+    if (params && typeof result === 'string') {
+      Object.keys(params).forEach(paramKey => {
+        result = result.replace(new RegExp(`\\{${paramKey}\\}`, 'g'), String(params[paramKey]))
+      })
+    }
+    
+    return result
   }
 
   const handleSetLanguage = (newLanguage: Language) => {

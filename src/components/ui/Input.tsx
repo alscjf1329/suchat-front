@@ -1,7 +1,7 @@
 import React, { forwardRef } from 'react'
 
 interface InputProps {
-  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'date'
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'date' | 'datetime-local' | 'time'
   value: string
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
   onKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void
@@ -35,10 +35,10 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
     maxLength
   } = props
   
-  // date input의 경우 아이콘을 오른쪽에, 다른 타입은 왼쪽에
-  const isDateType = type === 'date'
+  // date/datetime-local/time input의 경우 아이콘을 오른쪽에, 다른 타입은 왼쪽에
+  const isDateType = type === 'date' || type === 'datetime-local' || type === 'time'
   const paddingClasses = isDateType 
-    ? 'pl-4 pr-10'  // date는 오른쪽에 아이콘 공간
+    ? (type === 'datetime-local' || type === 'time' ? 'pl-4 pr-4' : 'pl-4 pr-10')  // datetime-local, time은 아이콘 공간 없음, date는 오른쪽에 아이콘 공간
     : (icon ? 'pl-10 pr-4' : 'pl-4 pr-4')  // 다른 타입은 왼쪽에 아이콘
   
   const baseClasses = `w-full ${paddingClasses} py-3 bg-primary border border-divider rounded-xl focus:ring-2 focus:ring-[#0064FF] focus:border-[#0064FF] outline-none transition-all duration-200 shadow-sm text-primary`
@@ -88,8 +88,8 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
           } as React.CSSProperties : undefined}
         />
         
-        {/* date 타입의 아이콘은 오른쪽에 */}
-        {icon && isDateType && (
+        {/* date 타입의 아이콘은 오른쪽에 (datetime-local, time 제외) */}
+        {icon && isDateType && type === 'date' && (
           <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none z-10">
             <span className="text-secondary text-sm">{icon}</span>
           </div>
