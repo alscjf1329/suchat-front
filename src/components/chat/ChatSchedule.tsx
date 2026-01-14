@@ -432,28 +432,32 @@ export default function ChatSchedule({
   }, [])
 
   // 모달 열릴 때 초기화
+  const prevIsOpenRef = useRef(false)
   useEffect(() => {
-    if (!isOpen) return
-    
-    setIsCreating(false)
-    setEditingSchedule(null)
-    setShowNotificationSettings(false)
-    setFormData({
-      title: '',
-      memo: '',
-      startDate: '',
-      startTime: '',
-      endDate: '',
-      endTime: '',
-      allDay: false,
-      participantIds: [],
-      notificationBeforeEvent: '0',
-      notificationInterval: '30',
-      notificationRepeatCount: '1',
-    })
-    loadRoomParticipants()
-    loadSchedules()
-  }, [isOpen, loadSchedules, loadRoomParticipants])
+    // 모달이 닫혔다가 다시 열릴 때만 초기화
+    if (isOpen && !prevIsOpenRef.current) {
+      setIsCreating(false)
+      setEditingSchedule(null)
+      setShowNotificationSettings(false)
+      setFormData({
+        title: '',
+        memo: '',
+        startDate: '',
+        startTime: '',
+        endDate: '',
+        endTime: '',
+        allDay: false,
+        participantIds: [],
+        notificationBeforeEvent: '0',
+        notificationInterval: '30',
+        notificationRepeatCount: '1',
+      })
+      loadRoomParticipants()
+      loadSchedules()
+    }
+    prevIsOpenRef.current = isOpen
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, chatId])
 
   // 일정 생성 폼이 열릴 때 모든 참가자 자동 선택
   useEffect(() => {
@@ -466,6 +470,28 @@ export default function ChatSchedule({
       }))
     }
   }, [isCreating, editingSchedule, actualRoomParticipants])
+
+  // 모달이 열릴 때 배경 스크롤 방지
+  useEffect(() => {
+    if (isOpen) {
+      // 현재 스크롤 위치 저장
+      const scrollY = window.scrollY
+      // body 스크롤 막기
+      document.body.style.position = 'fixed'
+      document.body.style.top = `-${scrollY}px`
+      document.body.style.width = '100%'
+      document.body.style.overflow = 'hidden'
+      
+      return () => {
+        // 모달이 닫힐 때 원래 상태로 복원
+        document.body.style.position = ''
+        document.body.style.top = ''
+        document.body.style.width = ''
+        document.body.style.overflow = ''
+        window.scrollTo(0, scrollY)
+      }
+    }
+  }, [isOpen])
 
   if (!isOpen) return null
 
@@ -503,7 +529,10 @@ export default function ChatSchedule({
               <div className="flex items-center space-x-2">
                 {!isCreating && (
                   <button
-                    onClick={() => setIsCreating(true)}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setIsCreating(true)
+                    }}
                     className="p-2.5 md:px-4 md:py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2 bg-[var(--icon-active)] text-white hover:opacity-90 font-semibold shadow-lg"
                     title={t('schedule.create')}
                   >
@@ -528,7 +557,7 @@ export default function ChatSchedule({
           </div>
           
           {/* 본문 */}
-          <div className="flex-1 overflow-hidden p-4 md:p-5 relative min-h-0">
+          <div className="flex-1 overflow-hidden p-4 md:p-5 relative min-h-0 flex flex-col">
             {/* 일정 생성/수정 폼 */}
             {isCreating && (
               <div className="h-full flex flex-col min-h-0">
@@ -785,52 +814,75 @@ export default function ChatSchedule({
             )}
             
             {/* 일정 목록 (타임라인 스타일) */}
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center space-y-3">
-                  <div className="w-12 h-12 border-4 border-[var(--icon-active)] border-t-transparent rounded-full animate-spin"></div>
-                  <p className="text-secondary">{t('common.loading')}</p>
-                </div>
-              </div>
-            ) : (schedules.length === 0 && isCreating === false) ? (
-              <div className="flex flex-col items-center justify-center py-16">
-                <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[var(--icon-active)]/20 to-[var(--icon-active)]/10 flex items-center justify-center mb-6">
-                  <span className="text-5xl">📅</span>
-                </div>
-                <p className="text-primary font-bold text-lg mb-2">{t('schedule.empty')}</p>
-                <p className="text-secondary text-sm text-center max-w-sm">{t('schedule.emptyMessage')}</p>
-                {!isCreating && (
-                  <Button
-                    onClick={() => setIsCreating(true)}
-                    className="mt-6 px-6 py-3 bg-[var(--icon-active)] hover:opacity-90 font-semibold shadow-lg"
-                  >
-                    {t('schedule.create')}
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-6">
+            {!isCreating && (
+              <div className="flex-1 overflow-y-auto scrollbar-hide min-h-0">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <div className="flex flex-col items-center space-y-3">
+                      <div className="w-12 h-12 border-4 border-[var(--icon-active)] border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-secondary">{t('common.loading')}</p>
+                    </div>
+                  </div>
+                ) : (schedules.length === 0) ? (
+                  <div className="flex flex-col items-center justify-center py-16">
+                    <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-[var(--icon-active)]/20 to-[var(--icon-active)]/10 flex items-center justify-center mb-6">
+                      <span className="text-5xl">📅</span>
+                    </div>
+                    <p className="text-primary font-bold text-lg mb-2">{t('schedule.empty')}</p>
+                    <p className="text-secondary text-sm text-center max-w-sm">{t('schedule.emptyMessage')}</p>
+                    <Button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setIsCreating(true)
+                      }}
+                      className="mt-6 px-6 py-3 bg-[var(--icon-active)] hover:opacity-90 font-semibold shadow-lg"
+                    >
+                      {t('schedule.create')}
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
                 {schedules.map((schedule, index) => {
                   const startDate = new Date(schedule.startDate)
                   const endDate = schedule.endDate ? new Date(schedule.endDate) : null
                   const isSameDay = endDate && startDate.toDateString() === endDate.toDateString()
                   
+                  // 이전 일정과 같은 날짜인지 확인
+                  const prevSchedule = index > 0 ? schedules[index - 1] : null
+                  const prevStartDate = prevSchedule ? new Date(prevSchedule.startDate) : null
+                  const isSameDateAsPrev = prevStartDate && 
+                    startDate.getFullYear() === prevStartDate.getFullYear() &&
+                    startDate.getMonth() === prevStartDate.getMonth() &&
+                    startDate.getDate() === prevStartDate.getDate()
+                  
+                  // 다음 일정과 같은 날짜인지 확인
+                  const nextSchedule = index < schedules.length - 1 ? schedules[index + 1] : null
+                  const nextStartDate = nextSchedule ? new Date(nextSchedule.startDate) : null
+                  const isSameDateAsNext = nextStartDate && 
+                    startDate.getFullYear() === nextStartDate.getFullYear() &&
+                    startDate.getMonth() === nextStartDate.getMonth() &&
+                    startDate.getDate() === nextStartDate.getDate()
+                  
                   return (
                     <div
                       key={schedule.id}
-                      className="relative pl-10 md:pl-12 pb-8 last:pb-0"
+                      className={`relative pl-10 md:pl-12 ${isSameDateAsPrev ? 'pb-4' : 'pb-8'} last:pb-0`}
                     >
                       {/* 타임라인 라인 */}
                       {index < schedules.length - 1 && (
-                        <div className="absolute left-5 md:left-6 top-12 bottom-0 w-0.5 bg-gradient-to-b from-[var(--icon-active)] to-divider" />
+                        <div className={`absolute left-5 md:left-6 top-12 bottom-0 w-0.5 bg-gradient-to-b from-[var(--icon-active)] ${isSameDateAsNext ? 'to-[var(--icon-active)]/30' : 'to-divider'}`} />
                       )}
                       
-                      {/* 타임라인 점 */}
-                      <div className="absolute left-0 top-2 w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[var(--icon-active)] to-[var(--icon-active)]/80 rounded-full flex items-center justify-center shadow-lg border-4 border-primary z-10">
-                        <span className="text-white text-lg md:text-xl font-bold">
-                          {startDate.getDate()}
-                        </span>
-                      </div>
+                      {/* 타임라인 점 - 같은 날짜면 작게 표시 */}
+                      {isSameDateAsPrev ? (
+                        <div className="absolute left-2 md:left-3 top-4 w-6 h-6 md:w-8 md:h-8 bg-[var(--icon-active)]/30 rounded-full flex items-center justify-center border-2 border-[var(--icon-active)]/50 z-10" />
+                      ) : (
+                        <div className="absolute left-0 top-2 w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[var(--icon-active)] to-[var(--icon-active)]/80 rounded-full flex items-center justify-center shadow-lg border-4 border-primary z-10">
+                          <span className="text-white text-lg md:text-xl font-bold">
+                            {startDate.getDate()}
+                          </span>
+                        </div>
+                      )}
                       
                       {/* 일정 카드 */}
                       <div className="bg-gradient-to-br from-secondary/50 via-secondary/30 to-secondary/50 rounded-2xl p-5 md:p-6 border border-divider hover:border-[var(--icon-active)]/50 hover:shadow-xl transition-all duration-300 group">
@@ -934,6 +986,8 @@ export default function ChatSchedule({
                     </div>
                   )
                 })}
+                  </div>
+                )}
               </div>
             )}
           </div>
