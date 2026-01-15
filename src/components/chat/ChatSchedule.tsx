@@ -15,6 +15,9 @@ interface Schedule {
   memo?: string
   startDate: string
   endDate?: string
+  notificationDateTime?: string
+  notificationInterval?: string
+  notificationRepeatCount?: string
   createdAt: string
   updatedAt: string
   creator?: {
@@ -86,6 +89,32 @@ export default function ChatSchedule({
     showToastRef.current = showToast
     tRef.current = t
   }, [showToast, t])
+
+  // Date를 yyyymmddHH24mmss 형식으로 변환
+  const formatDateToString = useCallback((date: Date): string => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    const hours = String(date.getHours()).padStart(2, '0')
+    const minutes = String(date.getMinutes()).padStart(2, '0')
+    const seconds = String(date.getSeconds()).padStart(2, '0')
+    return `${year}${month}${day}${hours}${minutes}${seconds}`
+  }, [])
+
+  // yyyymmddHH24mmss 형식 문자열을 Date로 변환
+  const parseDateFromString = useCallback((dateStr: string): Date => {
+    if (!dateStr || dateStr.length !== 14) {
+      // ISO string 형식인 경우 그대로 파싱
+      return new Date(dateStr)
+    }
+    const year = parseInt(dateStr.substring(0, 4), 10)
+    const month = parseInt(dateStr.substring(4, 6), 10) - 1 // month is 0-indexed
+    const day = parseInt(dateStr.substring(6, 8), 10)
+    const hours = parseInt(dateStr.substring(8, 10), 10)
+    const minutes = parseInt(dateStr.substring(10, 12), 10)
+    const seconds = parseInt(dateStr.substring(12, 14), 10)
+    return new Date(year, month, day, hours, minutes, seconds)
+  }, [])
 
   // 참여자 목록 불러오기 (REST API)
   const loadRoomParticipants = useCallback(async () => {
@@ -203,19 +232,21 @@ export default function ChatSchedule({
       const beforeMinutes = parseInt(formData.notificationBeforeEvent, 10)
       const notificationDate = new Date(startDate)
       notificationDate.setMinutes(notificationDate.getMinutes() - beforeMinutes)
-      notificationDateTime = notificationDate.toISOString()
+      notificationDateTime = formatDateToString(notificationDate)
     } else if (formData.notificationBeforeEvent === '0') {
       // 이벤트 시간 = 시작 일시
-      notificationDateTime = startDate.toISOString()
+      notificationDateTime = formatDateToString(startDate)
     }
 
     try {
       const response = await apiClient.post(`/chat/schedule/${chatId}`, {
         title: trimmedTitle,
         memo: formData.memo.trim() || undefined,
-        startDate: startDate.toISOString(),
-        endDate: endDate ? endDate.toISOString() : undefined,
+        startDate: formatDateToString(startDate),
+        endDate: endDate ? formatDateToString(endDate) : undefined,
         notificationDateTime: notificationDateTime,
+        notificationInterval: formData.notificationInterval,
+        notificationRepeatCount: formData.notificationRepeatCount,
         participantIds: formData.participantIds,
       })
 
@@ -313,19 +344,21 @@ export default function ChatSchedule({
       const beforeMinutes = parseInt(formData.notificationBeforeEvent, 10)
       const notificationDate = new Date(startDate)
       notificationDate.setMinutes(notificationDate.getMinutes() - beforeMinutes)
-      notificationDateTime = notificationDate.toISOString()
+      notificationDateTime = formatDateToString(notificationDate)
     } else if (formData.notificationBeforeEvent === '0') {
       // 이벤트 시간 = 시작 일시
-      notificationDateTime = startDate.toISOString()
+      notificationDateTime = formatDateToString(startDate)
     }
 
     try {
       await apiClient.put(`/chat/schedule/${editingSchedule.id}`, {
         title: trimmedTitle,
         memo: formData.memo.trim() || undefined,
-        startDate: startDate.toISOString(),
-        endDate: endDate ? endDate.toISOString() : undefined,
+        startDate: formatDateToString(startDate),
+        endDate: endDate ? formatDateToString(endDate) : undefined,
         notificationDateTime: notificationDateTime,
+        notificationInterval: formData.notificationInterval,
+        notificationRepeatCount: formData.notificationRepeatCount,
         participantIds: formData.participantIds,
       })
 
@@ -370,8 +403,21 @@ export default function ChatSchedule({
   // 일정 편집 시작
   const handleEditSchedule = useCallback((schedule: Schedule) => {
     setEditingSchedule(schedule)
-    const startDate = schedule.startDate ? new Date(schedule.startDate) : new Date()
-    const endDate = schedule.endDate ? new Date(schedule.endDate) : null
+    const startDate = schedule.startDate ? parseDateFromString(schedule.startDate) : new Date()
+    const endDate = schedule.endDate ? parseDateFromString(schedule.endDate) : null
+    
+    // 알림 시간 계산 (notificationDateTime이 시작 일시보다 몇 분 전인지)
+    let notificationBeforeEvent = '0'
+    if (schedule.notificationDateTime) {
+      const notificationDate = parseDateFromString(schedule.notificationDateTime)
+      const diffMinutes = Math.round((startDate.getTime() - notificationDate.getTime()) / (1000 * 60))
+      // 가장 가까운 옵션 값 찾기
+      const options = [0, 5, 10, 15, 30, 60, 120, 1440]
+      const closest = options.reduce((prev, curr) => 
+        Math.abs(curr - diffMinutes) < Math.abs(prev - diffMinutes) ? curr : prev
+      )
+      notificationBeforeEvent = String(closest)
+    }
     
     setFormData({
       title: schedule.title,
@@ -382,13 +428,13 @@ export default function ChatSchedule({
       endTime: endDate ? endDate.toTimeString().slice(0, 5) : '',
       allDay: false, // TODO: 전체일정 여부 판단 로직 추가 가능
       participantIds: schedule.participants?.map(p => p.userId) || [],
-      notificationBeforeEvent: '0',
-      notificationInterval: '30',
-      notificationRepeatCount: '1',
+      notificationBeforeEvent: notificationBeforeEvent,
+      notificationInterval: schedule.notificationInterval || '30',
+      notificationRepeatCount: schedule.notificationRepeatCount || '1',
     })
     setShowNotificationSettings(false)
     setIsCreating(true)
-  }, [])
+  }, [parseDateFromString])
 
   // 참여자 토글
   const toggleParticipant = useCallback((userId: string) => {
@@ -402,7 +448,7 @@ export default function ChatSchedule({
 
   // 날짜 포맷팅
   const formatDate = useCallback((dateString: string) => {
-    const date = new Date(dateString)
+    const date = parseDateFromString(dateString)
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
@@ -410,26 +456,26 @@ export default function ChatSchedule({
       hour: '2-digit',
       minute: '2-digit',
     })
-  }, [])
+  }, [parseDateFromString])
 
   // 날짜만 포맷팅 (시간 제외)
   const formatDateOnly = useCallback((dateString: string) => {
-    const date = new Date(dateString)
+    const date = parseDateFromString(dateString)
     return date.toLocaleDateString('ko-KR', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     })
-  }, [])
+  }, [parseDateFromString])
 
   // 시간만 포맷팅
   const formatTime = useCallback((dateString: string) => {
-    const date = new Date(dateString)
+    const date = parseDateFromString(dateString)
     return date.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
     })
-  }, [])
+  }, [parseDateFromString])
 
   // 모달 열릴 때 초기화
   const prevIsOpenRef = useRef(false)
@@ -843,13 +889,13 @@ export default function ChatSchedule({
                 ) : (
                   <div className="space-y-6">
                 {schedules.map((schedule, index) => {
-                  const startDate = new Date(schedule.startDate)
-                  const endDate = schedule.endDate ? new Date(schedule.endDate) : null
+                  const startDate = parseDateFromString(schedule.startDate)
+                  const endDate = schedule.endDate ? parseDateFromString(schedule.endDate) : null
                   const isSameDay = endDate && startDate.toDateString() === endDate.toDateString()
                   
                   // 이전 일정과 같은 날짜인지 확인
                   const prevSchedule = index > 0 ? schedules[index - 1] : null
-                  const prevStartDate = prevSchedule ? new Date(prevSchedule.startDate) : null
+                  const prevStartDate = prevSchedule ? parseDateFromString(prevSchedule.startDate) : null
                   const isSameDateAsPrev = prevStartDate && 
                     startDate.getFullYear() === prevStartDate.getFullYear() &&
                     startDate.getMonth() === prevStartDate.getMonth() &&
@@ -857,7 +903,7 @@ export default function ChatSchedule({
                   
                   // 다음 일정과 같은 날짜인지 확인
                   const nextSchedule = index < schedules.length - 1 ? schedules[index + 1] : null
-                  const nextStartDate = nextSchedule ? new Date(nextSchedule.startDate) : null
+                  const nextStartDate = nextSchedule ? parseDateFromString(nextSchedule.startDate) : null
                   const isSameDateAsNext = nextStartDate && 
                     startDate.getFullYear() === nextStartDate.getFullYear() &&
                     startDate.getMonth() === nextStartDate.getMonth() &&
