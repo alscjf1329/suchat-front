@@ -11,7 +11,7 @@
  * - BroadcastChannel 사용하여 백그라운드 → 포그라운드 전환 시 알림 클릭 처리 ⭐ NEW
  */
 
-const CACHE_NAME = 'suchat-v2.6';
+const CACHE_NAME = 'suchat-v2.7';
 const OLD_CACHE_NAMES = [
   'suchat-v1',
   'suchat-v2',
@@ -20,6 +20,7 @@ const OLD_CACHE_NAMES = [
   'suchat-v2.3',
   'suchat-v2.4',
   'suchat-v2.5',
+  'suchat-v2.6',
   'workbox-precache-v2',
   'workbox-runtime',
   'workbox-precache',

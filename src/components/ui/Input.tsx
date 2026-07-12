@@ -41,9 +41,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>((props, ref) => {
     ? (type === 'datetime-local' || type === 'time' ? 'pl-4 pr-4' : 'pl-4 pr-10')  // datetime-local, time은 아이콘 공간 없음, date는 오른쪽에 아이콘 공간
     : (icon ? 'pl-10 pr-4' : 'pl-4 pr-4')  // 다른 타입은 왼쪽에 아이콘
   
-  const baseClasses = `w-full ${paddingClasses} py-3 bg-primary border border-divider rounded-xl focus:ring-2 focus:ring-[#0064FF] focus:border-[#0064FF] outline-none transition-all duration-200 shadow-sm text-primary`
+  const baseClasses = `w-full ${paddingClasses} py-3 bg-secondary border border-divider rounded-2xl focus:ring-2 focus:ring-[var(--icon-active)]/50 focus:border-[var(--icon-active)]/50 outline-none transition-all duration-200 text-primary placeholder:text-secondary`
   const errorClasses = error ? "border-red-500 focus:ring-red-500 focus:border-red-500" : ""
-  const disabledClasses = disabled ? "bg-secondary cursor-not-allowed" : ""
+  const disabledClasses = disabled ? "opacity-60 cursor-not-allowed" : ""
   // date input의 경우 높이를 명시적으로 설정하고 line-height를 조정
   const dateClasses = isDateType ? "h-12 leading-[1.2]" : ""
   

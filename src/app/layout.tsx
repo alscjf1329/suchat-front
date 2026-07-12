@@ -71,7 +71,7 @@ export const metadata: Metadata = {
       { url: '/favicon.svg', type: 'image/svg+xml' },
     ],
     apple: [
-      { url: '/icons/icon-192x192.svg', sizes: '192x192', type: 'image/svg+xml' },
+      { url: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
     ],
   },
   appleWebApp: {
@@ -80,7 +80,7 @@ export const metadata: Metadata = {
     title: 'SuChat',
     startupImage: [
       {
-        url: '/icons/icon-192x192.svg',
+        url: '/icons/icon-192x192.png',
         media: '(device-width: 768px) and (device-height: 1024px)',
       },
     ],
@@ -99,8 +99,8 @@ export const viewport: Viewport = {
   minimumScale: 1,
   userScalable: false,
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#2563eb' },
-    { media: '(prefers-color-scheme: dark)', color: '#1e40af' }
+    { media: '(prefers-color-scheme: light)', color: '#f8fcfe' },
+    { media: '(prefers-color-scheme: dark)', color: '#081521' }
   ],
   colorScheme: 'light dark',
 }
@@ -131,7 +131,7 @@ export default function RootLayout({
         <meta name="application-name" content="SuChat" />
         
         {/* PWA 관련 */}
-        <meta name="msapplication-TileColor" content="#2563eb" />
+        <meta name="msapplication-TileColor" content="#0ea5e9" />
         <meta name="msapplication-tap-highlight" content="no" />
         
         {/* 보안 관련 (X-Frame-Options는 서버 헤더에서 설정) */}

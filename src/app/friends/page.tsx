@@ -222,39 +222,38 @@ export default function FriendsPage() {
   }
 
   const renderUserItem = (user: User) => (
-    <div key={user.id} className="flex items-center space-x-3 py-3 px-4 mx-1 rounded-xl hover:bg-secondary cursor-pointer transition-all duration-200 bg-primary border border-divider">
-      {/* 아바타 */}
+    <div key={user.id} className="list-row">
+      {/* 아바타 — 물방울 */}
       <div className="relative">
-        <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center flex-shrink-0">
-          <span className="text-white font-medium text-sm">
+        <div className="w-[52px] h-[52px] bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[20px] flex items-center justify-center flex-shrink-0 shadow-md shadow-sky-500/20">
+          <span className="text-white font-bold text-lg">
             {user.name.charAt(0).toUpperCase()}
           </span>
         </div>
         {/* 온라인 상태 표시 */}
         {user.isActive && (
-          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-primary rounded-full"></div>
+          <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white dark:border-[#081521] rounded-full"></div>
         )}
       </div>
-      
+
       {/* 친구 정보 */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-medium text-primary truncate">
-            {highlightText(user.name, searchQuery)}
-          </h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handleSendMessage(user)}
-            className="p-1 text-xs flex-shrink-0 hover:scale-110 transition-transform"
-          >
-            💬
-          </Button>
-        </div>
-        <div className="text-xs text-secondary truncate">
+        <h3 className="text-[16px] font-semibold text-primary truncate mb-0.5">
+          {highlightText(user.name, searchQuery)}
+        </h3>
+        <div className="text-[13px] text-secondary truncate">
           {highlightText(user.email, searchQuery)}
         </div>
       </div>
+
+      {/* 대화 버튼 */}
+      <button
+        onClick={(e) => { e.stopPropagation(); handleSendMessage(user) }}
+        className="flex-shrink-0 w-10 h-10 rounded-full bg-secondary flex items-center justify-center hover:scale-105 transition-transform"
+        aria-label="메시지 보내기"
+      >
+        💬
+      </button>
     </div>
   )
 
@@ -269,45 +268,34 @@ export default function FriendsPage() {
         />
       )}
 
-      {/* 헤더 */}
-      <header className="bg-primary border-b border-divider px-2 h-16 flex items-center">
-        <div className="flex items-center justify-between w-full">
-          <div className="w-8"></div>
-          <h1 className="text-lg font-semibold text-primary">{t('friends.title')}</h1>
-          <Button variant="ghost" onClick={handleAddFriend} className="p-2">
-            <span className="text-secondary text-lg">+</span>
-          </Button>
-        </div>
+      {/* 헤더 — 토스식 큰 타이틀 */}
+      <header className="px-5 pt-6 pb-2 flex items-center justify-between">
+        <h1 className="text-[26px] font-extrabold text-primary">{t('friends.title')}</h1>
+        <Button variant="ghost" onClick={handleAddFriend} className="p-2 -mr-2 rounded-full">
+          <span className="text-[var(--icon-active)] text-2xl font-light leading-none">＋</span>
+        </Button>
       </header>
 
-      {/* 탭 네비게이션 */}
-      <div className="bg-primary border-b border-divider">
-        <div className="flex">
+      {/* 탭 — 세그먼트 필 */}
+      <div className="px-4 pb-2">
+        <div className="segmented">
           <button
             onClick={() => setActiveTab('friends')}
-            className={`flex-1 py-3 text-sm font-medium ${
-              activeTab === 'friends'
-                ? 'text-[#0064FF] border-b-2 border-[#0064FF]'
-                : 'text-secondary'
-            }`}
+            className={activeTab === 'friends' ? 'seg-active' : ''}
           >
-            {t('friends.title')} ({users.length})
+            {t('friends.title')} {users.length}
           </button>
           <button
             onClick={() => setActiveTab('requests')}
-            className={`flex-1 py-3 text-sm font-medium ${
-              activeTab === 'requests'
-                ? 'text-[#0064FF] border-b-2 border-[#0064FF]'
-                : 'text-secondary'
-            }`}
+            className={activeTab === 'requests' ? 'seg-active' : ''}
           >
-            {t('friends.friendRequest')} ({friendRequests.length})
+            {t('friends.friendRequest')} {friendRequests.length}
           </button>
         </div>
       </div>
 
       {/* 검색 바 */}
-      <div className="px-2 py-3 bg-primary border-b border-divider">
+      <div className="px-4 pb-2">
         <div className="relative">
           <Input
             type="text"
@@ -334,7 +322,7 @@ export default function FriendsPage() {
       </div>
 
       {/* 친구 목록 또는 요청 목록 */}
-      <div className="flex-1 py-2 overflow-y-auto scrollbar-hide">
+      <div className="flex-1 px-2 py-2 overflow-y-auto scrollbar-hide">
         {activeTab === 'friends' ? (
           isLoading ? (
             <div className="flex items-center justify-center h-full">
@@ -366,37 +354,35 @@ export default function FriendsPage() {
             <div className="space-y-2">
               {friendRequests.length > 0 ? (
                 friendRequests.map((request) => (
-                  <div key={request.id} className="flex items-center space-x-3 py-3 px-4 mx-1 rounded-xl bg-primary border border-divider">
-                    {/* 아바타 */}
-                    <div className="relative">
-                      <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center flex-shrink-0">
-                        <span className="text-white font-medium text-sm">
-                          {request.requester?.name?.charAt(0).toUpperCase() || '?'}
-                        </span>
-                      </div>
+                  <div key={request.id} className="list-row cursor-default">
+                    {/* 아바타 — 물방울 */}
+                    <div className="w-[52px] h-[52px] bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[20px] flex items-center justify-center flex-shrink-0 shadow-md shadow-sky-500/20">
+                      <span className="text-white font-bold text-lg">
+                        {request.requester?.name?.charAt(0).toUpperCase() || '?'}
+                      </span>
                     </div>
-                    
+
                     {/* 요청자 정보 */}
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-primary">
+                      <h3 className="text-[16px] font-semibold text-primary truncate mb-0.5">
                         {request.requester?.name || '알 수 없음'}
                       </h3>
-                      <div className="text-xs text-secondary">
+                      <div className="text-[13px] text-secondary truncate">
                         {request.requester?.email || ''}
                       </div>
                     </div>
 
-                    {/* 수락/거절 버튼 */}
+                    {/* 수락/거절 버튼 — 토스식 */}
                     <div className="flex gap-2 flex-shrink-0">
                       <button
                         onClick={() => handleAcceptRequest(request.id)}
-                        className="px-3 py-1.5 bg-green-500 text-white text-xs rounded-lg hover:bg-green-600 transition-colors"
+                        className="px-4 py-2 bg-[var(--icon-active)] text-[var(--accent-contrast)] text-[13px] font-semibold rounded-xl hover:opacity-90 transition-opacity"
                       >
                         수락
                       </button>
                       <button
                         onClick={() => handleRejectRequest(request.id)}
-                        className="px-3 py-1.5 bg-red-500 text-white text-xs rounded-lg hover:bg-red-600 transition-colors"
+                        className="px-4 py-2 bg-secondary text-secondary text-[13px] font-semibold rounded-xl hover:opacity-80 transition-opacity"
                       >
                         거절
                       </button>
@@ -425,7 +411,7 @@ export default function FriendsPage() {
       {/* 친구 추가 모달 */}
       {isAddModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-primary rounded-2xl w-full max-w-md max-h-[80vh] flex flex-col shadow-2xl">
+          <div className="card w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden">
             {/* 모달 헤더 */}
             <div className="flex items-center justify-between p-4 border-b border-divider">
               <h2 className="text-lg font-semibold text-primary">친구 추가</h2>
@@ -466,7 +452,7 @@ export default function FriendsPage() {
                 <Button
                   onClick={handleSearchUsers}
                   disabled={!addSearchQuery.trim() || isLoading}
-                  className="px-4 py-2 bg-[#0064FF] text-white rounded-lg hover:bg-[#0052CC] disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-[var(--icon-active)] text-[var(--accent-contrast)] rounded-lg hover:bg-[var(--icon-active)] disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   검색
                 </Button>
@@ -495,7 +481,7 @@ export default function FriendsPage() {
                       >
                         {/* 아바타 */}
                         <div className="relative">
-                          <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center flex-shrink-0">
+                          <div className="w-12 h-12 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-xl flex items-center justify-center flex-shrink-0">
                             <span className="text-white font-medium text-sm">
                               {user.name.charAt(0).toUpperCase()}
                             </span>
@@ -519,7 +505,7 @@ export default function FriendsPage() {
                         <div className="flex gap-2 flex-shrink-0">
                           <button
                             onClick={() => handleSendFriendRequest(user.id)}
-                            className="px-3 py-1.5 bg-[#0064FF] text-white text-xs rounded-lg hover:bg-[#0052CC] transition-colors"
+                            className="px-3 py-1.5 bg-[var(--icon-active)] text-[var(--accent-contrast)] text-xs rounded-lg hover:bg-[var(--icon-active)] transition-colors"
                           >
                             친구 추가
                           </button>

@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 성능 최적화
-  swcMinify: true, // SWC 기반 minification
+  // 성능 최적화 (swcMinify는 Next 15부터 기본이라 옵션 제거됨)
   reactStrictMode: true,
   
   // 이미지 최적화

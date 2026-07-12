@@ -229,8 +229,14 @@ export default function SignUpPage() {
       const response = await apiClient.signUp(signUpData)
       
       if (response.success) {
-        // 이메일 인증 안내 페이지로 이동
-        router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&name=${encodeURIComponent(formData.name)}`)
+        if ((response as any).verified) {
+          // 개발 모드: 서버가 이메일 인증을 생략하고 바로 가입 완료
+          showToast('회원가입 완료! 바로 로그인하세요 🎉', 'success')
+          setTimeout(() => router.push('/login'), 1200)
+        } else {
+          // 이메일 인증 안내 페이지로 이동
+          router.push(`/verify-email?email=${encodeURIComponent(formData.email)}&name=${encodeURIComponent(formData.name)}`)
+        }
       } else {
         showToast(response.message || '회원가입 요청에 실패했습니다.', 'error')
       }
@@ -379,37 +385,21 @@ export default function SignUpPage() {
       </div>
       
       <div className="w-full max-w-md">
-        <div className="bg-primary rounded-2xl shadow-lg p-8 border border-divider">
-          {/* 상단 헤더 */}
-          <div className="flex items-center justify-between mb-8">
-            {/* 로고 */}
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center shadow-md">
-                <div className="w-6 h-6 bg-primary rounded-lg flex items-center justify-center">
-                  <span className="text-[#0064FF] font-bold text-sm">S</span>
-                </div>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-primary">{getStepTitle()}</h1>
-                <p className="text-xs text-secondary">{getStepDescription()}</p>
-              </div>
-            </div>
-
-            {/* 진행 단계 표시 */}
-            <div className="flex space-x-1">
+        <div className="card p-7">
+          {/* 상단 헤더 — 토스식 진행 바 + 큰 타이틀 */}
+          <div className="mb-8">
+            <div className="flex space-x-1.5 mb-6">
               {[1, 2, 3].map((step) => (
                 <div
                   key={step}
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium ${
-                    step <= currentStep
-                      ? 'bg-[#0064FF] text-white'
-                      : 'bg-secondary text-secondary'
+                  className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
+                    step <= currentStep ? 'bg-[var(--icon-active)]' : 'bg-secondary'
                   }`}
-                >
-                  {step}
-                </div>
+                />
               ))}
             </div>
+            <h1 className="text-[24px] font-extrabold text-primary mb-1.5">{getStepTitle()}</h1>
+            <p className="text-[15px] text-secondary">{getStepDescription()}</p>
           </div>
 
           {/* 단계별 콘텐츠 */}
@@ -429,7 +419,7 @@ export default function SignUpPage() {
                 <Button
                   onClick={handleNext}
                   loading={isCheckingEmail}
-                  className="flex-1 bg-[#0064FF] text-white"
+                  className="flex-1 py-3.5"
                 >
                   {isCheckingEmail ? '확인 중...' : '다음'}
                 </Button>
@@ -445,7 +435,7 @@ export default function SignUpPage() {
                 </Button>
                 <Button
                   onClick={handleNext}
-                  className="flex-1 bg-[#0064FF] text-white"
+                  className="flex-1 py-3.5"
                 >
                   다음
                 </Button>
@@ -462,7 +452,7 @@ export default function SignUpPage() {
                 <Button
                   onClick={handleSignUp}
                   loading={isLoading}
-                  className="flex-1 bg-[#0064FF] text-white"
+                  className="flex-1 py-3.5"
                 >
                   {isLoading ? t('signup.signupLoading') : t('signup.signupButton')}
                 </Button>

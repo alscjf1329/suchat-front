@@ -15,8 +15,10 @@ interface ToastState {
 }
 
 export default function LoginPage() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  // 개발 모드에서만 .env.local의 임시 계정 자동 입력 (프로덕션 빌드에선 항상 빈 값)
+  const isDev = process.env.NODE_ENV === 'development'
+  const [email, setEmail] = useState(isDev ? process.env.NEXT_PUBLIC_DEV_EMAIL ?? '' : '')
+  const [password, setPassword] = useState(isDev ? process.env.NEXT_PUBLIC_DEV_PASSWORD ?? '' : '')
   const [isLoading, setIsLoading] = useState(false)
   const [toast, setToast] = useState<ToastState>({ show: false, message: '', type: 'info' })
   const router = useRouter()
@@ -91,16 +93,14 @@ export default function LoginPage() {
       </div>
       
       <div className="w-full max-w-md">
-        <div className="bg-primary rounded-2xl shadow-lg p-8 border border-divider">
-          {/* 로고 */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-[#0064FF] font-bold text-lg">S</span>
-              </div>
+        <div className="card p-7">
+          {/* 로고 — 물방울 */}
+          <div className="mb-8">
+            <div className="w-14 h-14 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[22px] rounded-tl-md flex items-center justify-center mb-5 shadow-lg shadow-sky-500/30">
+              <span className="text-white font-extrabold text-xl">S</span>
             </div>
-            <h1 className="text-2xl font-bold text-primary mb-2">{t('login.title')}</h1>
-            <p className="text-secondary">{t('login.subtitle')}</p>
+            <h1 className="text-[26px] font-extrabold text-primary mb-1.5">{t('login.title')}</h1>
+            <p className="text-[15px] text-secondary">{t('login.subtitle')}</p>
           </div>
 
           {/* 로그인 폼 */}
@@ -131,7 +131,7 @@ export default function LoginPage() {
             <Button
               type="submit"
               loading={isLoading}
-              className="w-full px-6 py-3"
+              className="w-full px-6 py-4 text-[16px]"
             >
               {isLoading ? t('login.loginLoading') : t('login.loginButton')}
             </Button>

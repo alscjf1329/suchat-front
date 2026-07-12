@@ -1151,7 +1151,7 @@ export default function ChatRoomPage() {
             <div
               className={`flex items-center space-x-2 px-4 py-3 rounded-xl transition-all duration-200 ${
                 selectedFolderId === folder.id
-                  ? 'bg-[var(--icon-active)] text-white'
+                  ? 'bg-[var(--icon-active)] text-[var(--accent-contrast)]'
                   : 'hover:bg-secondary text-primary border border-transparent hover:border-divider'
               }`}
             >
@@ -2038,16 +2038,16 @@ export default function ChatRoomPage() {
           className={`${msg.type === 'image' || msg.type === 'images' || msg.type === 'video' 
             ? 'max-w-[60%] md:max-w-[400px]' 
             : 'max-w-xs lg:max-w-md'
-          } px-4 py-2 rounded-2xl ${
+          } px-4 py-2.5 rounded-[20px] ${
             isMyMessage
               ? msg.isFailed
                 ? 'bg-red-500 text-white rounded-br-md opacity-70'
-                : 'bg-[var(--icon-active)] text-white rounded-br-md'
-              : 'bg-secondary text-primary rounded-bl-md'
+                : 'message-send rounded-br-md'
+              : 'message-receive rounded-bl-md'
           } ${msg.isPending ? 'opacity-60' : ''}`}
         >
           {msg.type === 'text' ? (
-            <p className="text-sm">{renderTextWithLinks(msg.content)}</p>
+            <p className="text-[15px] leading-relaxed">{renderTextWithLinks(msg.content)}</p>
           ) : msg.type === 'image' ? (
             <div className="space-y-2">
               <img 
@@ -2138,14 +2138,14 @@ export default function ChatRoomPage() {
             <span className="text-secondary text-lg">←</span>
           </Button>
           <div className="flex items-center space-x-3">
-            {/* 상대방 아바타 */}
-            <div className="w-10 h-10 bg-[var(--icon-active)] rounded-xl flex items-center justify-center">
-              <span className="text-white font-medium text-sm">
+            {/* 상대방 아바타 — 물방울 */}
+            <div className="w-10 h-10 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[16px] flex items-center justify-center shadow-md shadow-sky-500/20">
+              <span className="text-white font-bold text-sm">
                 {roomInfo?.name.charAt(0) || '?'}
               </span>
             </div>
             <div>
-              <h1 className="text-lg font-semibold text-primary">
+              <h1 className="text-[17px] font-bold text-primary">
                 {roomInfo?.name || '채팅방'}
               </h1>
               <p className="text-xs text-secondary">
@@ -2310,7 +2310,24 @@ export default function ChatRoomPage() {
               </div>
             )}
             
-            {messages.map(renderMessage)}
+            {messages.map((msg, i) => {
+              // 날짜가 바뀌면 구분선 삽입 (카톡 스타일)
+              const cur = new Date(msg.timestamp)
+              const prev = i > 0 ? new Date(messages[i - 1].timestamp) : null
+              const isNewDay = !prev || cur.toDateString() !== prev.toDateString()
+              return (
+                <div key={msg.tempId || msg.id}>
+                  {isNewDay && (
+                    <div className="flex items-center justify-center py-3">
+                      <span className="px-4 py-1.5 bg-secondary rounded-full text-xs text-secondary">
+                        {cur.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                      </span>
+                    </div>
+                  )}
+                  {renderMessage(msg)}
+                </div>
+              )
+            })}
             <div ref={messagesEndRef} />
           </div>
         )}
@@ -2461,7 +2478,7 @@ export default function ChatRoomPage() {
                 onFocus={handleInputFocus}
                 onKeyPress={handleKeyPress}
                 placeholder={isPasting ? '파일 처리 중...' : t('chat.messagePlaceholder')}
-                className="w-full px-2.5 md:px-4 py-2 md:py-3 pr-8 md:pr-12 bg-primary border border-divider rounded-lg text-[14px] md:text-base text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[var(--icon-active)] resize-none overflow-y-auto"
+                className="w-full px-3.5 md:px-4 py-2 md:py-3 pr-8 md:pr-12 bg-secondary rounded-[20px] text-[14px] md:text-base text-primary placeholder-secondary focus:outline-none focus:ring-2 focus:ring-[var(--icon-active)]/50 resize-none overflow-y-auto"
                 disabled={isPasting}
                 rows={1}
                 style={{
@@ -2508,7 +2525,7 @@ export default function ChatRoomPage() {
             disabled={(!message.trim() && previewFiles.length === 0) || isPasting}
             className={`p-2 md:p-3 rounded-full transition-all flex-shrink-0 ${
               (message.trim() || previewFiles.length > 0) && !isPasting
-                ? 'bg-[var(--icon-active)] text-white hover:opacity-90 active:scale-95'
+                ? 'bg-gradient-to-br from-[#38bdf8] to-[#0284c7] text-white shadow-md shadow-sky-500/30 hover:brightness-105 active:scale-95'
                 : 'bg-secondary text-secondary cursor-not-allowed'
             }`}
           >
@@ -2597,7 +2614,7 @@ export default function ChatRoomPage() {
                       className={`p-2.5 md:px-4 md:py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2 ${
                         selectedFolderId === null
                           ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
-                          : 'bg-[var(--icon-active)] text-white hover:opacity-90'
+                          : 'bg-[var(--icon-active)] text-[var(--accent-contrast)] hover:opacity-90'
                       }`}
                       title={selectedFolderId === null ? '채팅방 사진첩에는 직접 추가할 수 없습니다' : t('album.add')}
                     >
@@ -2700,7 +2717,7 @@ export default function ChatRoomPage() {
                         disabled={selectedPhotos.size === 0 || isDownloading}
                         className={`p-2.5 md:px-5 md:py-2.5 rounded-xl transition-all duration-200 flex items-center space-x-2 ${
                           selectedPhotos.size > 0 && !isDownloading
-                            ? 'bg-[var(--icon-active)] text-white hover:opacity-90'
+                            ? 'bg-[var(--icon-active)] text-[var(--accent-contrast)] hover:opacity-90'
                             : 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-500 cursor-not-allowed'
                         }`}
                         title={isDownloading ? t('album.downloading') : t('album.download')}
@@ -2749,7 +2766,7 @@ export default function ChatRoomPage() {
                       }}
                       className={`w-full px-4 py-3.5 rounded-xl text-left transition-all duration-200 flex items-center space-x-3 group ${
                         selectedFolderId === null
-                          ? 'bg-[var(--icon-active)] text-white'
+                          ? 'bg-[var(--icon-active)] text-[var(--accent-contrast)]'
                           : 'hover:bg-secondary text-primary border border-transparent hover:border-divider'
                       }`}
                     >

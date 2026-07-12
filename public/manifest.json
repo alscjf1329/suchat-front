@@ -4,8 +4,8 @@
   "description": "모바일 최적화 채팅 애플리케이션",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFFFFF",
-  "theme_color": "#0064FF",
+  "background_color": "#f8fcfe",
+  "theme_color": "#0ea5e9",
   "scope": "/",
   "lang": "ko",
   "icons": [
@@ -20,12 +20,6 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
-    },
-    {
-      "src": "/icons/icon-192x192.svg",
-      "sizes": "192x192",
-      "type": "image/svg+xml",
-      "purpose": "any"
     }
   ],
   "categories": ["social", "communication"],

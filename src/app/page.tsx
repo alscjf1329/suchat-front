@@ -22,13 +22,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-primary flex items-center justify-center">
       <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-md">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <span className="text-[#0064FF] font-bold text-lg">S</span>
-          </div>
+        {/* 물방울 로고 */}
+        <div className="w-20 h-20 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[32px] rounded-tl-lg flex items-center justify-center mx-auto mb-6 shadow-lg shadow-sky-500/30">
+          <span className="text-white font-extrabold text-3xl">S</span>
         </div>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0064FF] mx-auto mb-4"></div>
-        <p className="text-primary font-medium">SuChat으로 이동 중...</p>
+        <div className="animate-spin rounded-full h-7 w-7 border-2 border-[var(--icon-active)]/20 border-t-[var(--icon-active)] mx-auto mb-4"></div>
+        <p className="text-[15px] text-secondary font-medium">SuChat으로 이동 중...</p>
       </div>
     </div>
   )

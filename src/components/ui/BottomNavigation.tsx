@@ -61,23 +61,23 @@ export default function BottomNavigation({
                     (item.id === 'settings' && pathname === '/settings')
 
     return (
-      <Button 
+      <Button
         key={item.id}
-        variant="ghost" 
+        variant="ghost"
         onClick={item.onClick}
-        className={`flex-1 flex flex-col items-center py-2 ${
-          isActive ? 'text-[#0064FF]' : 'text-secondary'
+        className={`flex-1 flex flex-col items-center py-2 rounded-[20px] transition-all ${
+          isActive ? 'text-[var(--icon-active)] bg-secondary' : 'text-secondary'
         }`}
       >
-        <span className="text-xl mb-1">{item.icon}</span>
-        <span className="text-xs">{item.label}</span>
+        <span className={`text-xl mb-0.5 transition-transform ${isActive ? 'scale-110' : ''}`}>{item.icon}</span>
+        <span className={`text-[11px] ${isActive ? 'font-bold' : 'font-medium'}`}>{item.label}</span>
       </Button>
     )
   }
 
   return (
-    <div className="bg-primary border-t border-divider px-4 py-2">
-      <div className="flex items-center justify-between">
+    <div className="px-3 pb-3 pt-1">
+      <div className="glass-dock rounded-[26px] px-3 py-1.5 flex items-center justify-between">
         {navigationItems.map(renderNavigationItem)}
       </div>
     </div>

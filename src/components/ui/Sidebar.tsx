@@ -34,9 +34,9 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       <div className={`fixed left-0 top-0 h-full w-full max-w-80 bg-primary border-r border-divider transform transition-transform duration-300 ease-in-out ${
         isOpen ? 'translate-x-0' : '-translate-x-full'
       }`}>
-        {/* 헤더 */}
-        <div className="flex items-center justify-between p-6 border-b border-divider">
-          <h2 className="text-xl font-bold text-primary">{t('sidebar.title')}</h2>
+        {/* 헤더 — 토스식 큰 타이틀 */}
+        <div className="flex items-center justify-between px-6 pt-7 pb-4">
+          <h2 className="text-[24px] font-extrabold text-primary">{t('sidebar.title')}</h2>
           <Button 
             variant="ghost" 
             onClick={onClose}
@@ -55,10 +55,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 item.action()
                 onClose()
               }}
-              className="w-full flex items-center justify-start px-4 py-4 text-left hover:bg-secondary transition-colors duration-200 text-primary rounded-xl"
+              className="w-full flex items-center justify-start px-4 py-3.5 text-left hover:bg-secondary active:scale-[0.98] transition-all duration-150 text-primary rounded-2xl"
             >
-              <span className="text-2xl mr-4">{item.icon}</span>
-              <span className="text-lg font-medium">{item.label}</span>
+              <span className="w-10 h-10 rounded-[14px] bg-secondary flex items-center justify-center text-lg mr-3.5">{item.icon}</span>
+              <span className="text-[16px] font-semibold">{item.label}</span>
             </button>
           ))}
         </div>
@@ -66,8 +66,8 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         {/* 하단 사용자 정보 */}
         <div className="absolute bottom-0 left-0 right-0 p-6 border-t border-divider">
           <div className="flex items-center space-x-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center">
-              <span className="text-white font-medium">U</span>
+            <div className="w-12 h-12 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[18px] flex items-center justify-center shadow-md shadow-sky-500/20">
+              <span className="text-white font-bold">U</span>
             </div>
             <div>
               <div className="text-primary font-medium">{t('sidebar.user')}</div>

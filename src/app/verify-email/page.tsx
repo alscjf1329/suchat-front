@@ -116,12 +116,12 @@ function EmailVerificationContent() {
         </div>
         
         <div className="w-full max-w-md">
-          <div className="bg-primary rounded-2xl shadow-lg p-8 border border-divider">
+          <div className="card p-7">
             {/* 로고 */}
             <div className="text-center mb-8">
-              <div className="w-16 h-16 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
                 <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <span className="text-[#0064FF] font-bold text-lg">S</span>
+                  <span className="text-[var(--icon-active)] font-bold text-lg">S</span>
                 </div>
               </div>
               
@@ -131,7 +131,7 @@ function EmailVerificationContent() {
                   <p className="text-secondary">잠시만 기다려주세요.</p>
                   {isVerifying && (
                     <div className="mt-4">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#0064FF] mx-auto"></div>
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--icon-active)] mx-auto"></div>
                     </div>
                   )}
                 </>
@@ -152,7 +152,7 @@ function EmailVerificationContent() {
                   <div className="mt-6 space-y-3">
                     <Button
                       onClick={() => router.push('/signup')}
-                      className="w-full bg-[#0064FF] text-white"
+                      className="w-full py-3.5"
                     >
                       다시 회원가입하기
                     </Button>
@@ -182,13 +182,11 @@ function EmailVerificationContent() {
       </div>
       
       <div className="w-full max-w-md">
-        <div className="bg-primary rounded-2xl shadow-lg p-8 border border-divider">
+        <div className="card p-7">
           {/* 로고 */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-[#0064FF] font-bold text-lg">S</span>
-              </div>
+            <div className="w-16 h-16 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[26px] rounded-tl-md flex items-center justify-center mx-auto mb-4 shadow-lg shadow-sky-500/30">
+              <span className="text-white font-extrabold text-2xl">S</span>
             </div>
             <h1 className="text-2xl font-bold text-primary mb-2">이메일 인증 필요</h1>
             <p className="text-secondary">회원가입을 완료하려면 이메일 인증이 필요합니다.</p>
@@ -196,13 +194,13 @@ function EmailVerificationContent() {
 
           {/* 안내 메시지 */}
           <div className="space-y-6">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="bg-secondary rounded-2xl p-4">
               <div className="flex items-start space-x-3">
-                <span className="text-blue-600 text-xl">📧</span>
+                <span className="text-xl">📧</span>
                 <div>
-                  <h3 className="font-semibold text-blue-900 mb-1">인증 이메일을 확인하세요</h3>
-                  <p className="text-blue-700 text-sm">
-                    <strong>{name}</strong>님, <strong>{email}</strong>로 인증 이메일을 발송했습니다.
+                  <h3 className="font-semibold text-primary mb-1">인증 이메일을 확인하세요</h3>
+                  <p className="text-secondary text-sm">
+                    <strong className="text-primary">{name}</strong>님, <strong className="text-primary">{email}</strong>로 인증 이메일을 발송했습니다.
                     <br />
                     이메일의 링크를 클릭하여 인증을 완료해주세요.
                   </p>
@@ -215,7 +213,7 @@ function EmailVerificationContent() {
               {canResend ? (
                 <Button
                   onClick={handleResendEmail}
-                  className="w-full bg-[#0064FF] text-white"
+                  className="w-full py-3.5"
                 >
                   인증 이메일 재발송
                 </Button>
@@ -246,9 +244,9 @@ function EmailVerificationContent() {
             </div>
 
             {/* 도움말 */}
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-              <h4 className="font-semibold text-gray-900 mb-2">이메일을 받지 못하셨나요?</h4>
-              <ul className="text-sm text-gray-700 space-y-1">
+            <div className="bg-secondary rounded-2xl p-4">
+              <h4 className="font-semibold text-primary mb-2">이메일을 받지 못하셨나요?</h4>
+              <ul className="text-sm text-secondary space-y-1">
                 <li>• 스팸 폴더를 확인해보세요</li>
                 <li>• 이메일 주소가 올바른지 확인해보세요</li>
                 <li>• 몇 분 후에 다시 시도해보세요</li>
@@ -275,7 +273,7 @@ export default function EmailVerificationGuidePage() {
     <Suspense fallback={
       <div className="min-h-screen bg-primary flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0064FF] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--icon-active)] mx-auto mb-4"></div>
           <p className="text-secondary">로딩 중...</p>
         </div>
       </div>

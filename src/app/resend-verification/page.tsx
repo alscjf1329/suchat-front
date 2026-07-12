@@ -55,16 +55,14 @@ export default function ResendVerificationPage() {
       </div>
       
       <div className="w-full max-w-md">
-        <div className="bg-primary rounded-2xl shadow-lg p-8 border border-divider">
-          {/* 로고 */}
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <span className="text-[#0064FF] font-bold text-lg">S</span>
-              </div>
+        <div className="card p-7">
+          {/* 로고 — 물방울 */}
+          <div className="mb-8">
+            <div className="w-14 h-14 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[22px] rounded-tl-md flex items-center justify-center mb-5 shadow-lg shadow-sky-500/30">
+              <span className="text-white font-extrabold text-xl">S</span>
             </div>
-            <h1 className="text-2xl font-bold text-primary mb-2">인증 이메일 재발송</h1>
-            <p className="text-secondary">이메일 주소를 입력하면 인증 이메일을 다시 보내드립니다.</p>
+            <h1 className="text-[24px] font-extrabold text-primary mb-1.5">인증 이메일 재발송</h1>
+            <p className="text-[15px] text-secondary">이메일 주소를 입력하면 인증 이메일을 다시 보내드립니다.</p>
           </div>
 
           {!isSuccess ? (
@@ -80,10 +78,10 @@ export default function ResendVerificationPage() {
               />
 
               {message && (
-                <div className={`p-3 rounded-lg text-sm ${
-                  message.includes('실패') || message.includes('오류') 
-                    ? 'bg-red-50 text-red-600' 
-                    : 'bg-blue-50 text-blue-600'
+                <div className={`p-3 rounded-2xl text-sm ${
+                  message.includes('실패') || message.includes('오류')
+                    ? 'bg-red-500/10 text-red-500'
+                    : 'bg-secondary text-secondary'
                 }`}>
                   {message}
                 </div>
@@ -92,7 +90,7 @@ export default function ResendVerificationPage() {
               <Button
                 type="submit"
                 loading={isLoading}
-                className="w-full bg-[#0064FF] text-white"
+                className="w-full py-4 text-[16px]"
               >
                 {isLoading ? '발송 중...' : '인증 이메일 재발송'}
               </Button>
@@ -110,8 +108,8 @@ export default function ResendVerificationPage() {
             </form>
           ) : (
             <div className="text-center space-y-6">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
-                <span className="text-green-600 text-2xl">✓</span>
+              <div className="w-16 h-16 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[26px] rounded-tl-md flex items-center justify-center mx-auto shadow-lg shadow-sky-500/30">
+                <span className="text-white text-2xl font-bold">✓</span>
               </div>
               <div>
                 <h2 className="text-xl font-semibold text-primary mb-2">발송 완료!</h2>
@@ -119,7 +117,7 @@ export default function ResendVerificationPage() {
               </div>
               <Button
                 onClick={handleGoToLogin}
-                className="w-full bg-[#0064FF] text-white"
+                className="w-full py-4 text-[16px]"
               >
                 로그인하기
               </Button>

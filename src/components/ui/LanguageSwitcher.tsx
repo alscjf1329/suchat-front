@@ -55,14 +55,14 @@ export default function LanguageSwitcher({
               }}
               className={`w-full flex items-center justify-between px-4 py-3 text-left hover:bg-secondary transition-colors duration-200 ${
                 language === lang 
-                  ? 'text-[#0064FF] font-medium' 
+                  ? 'text-[var(--icon-active)] font-medium' 
                   : 'text-primary'
               }`}
             >
               <span className="text-lg mr-3">{languageFlags[lang]}</span>
               <span className="text-sm">{languageNames[lang]}</span>
               {language === lang && (
-                <span className="ml-auto text-[#0064FF]">✓</span>
+                <span className="ml-auto text-[var(--icon-active)]">✓</span>
               )}
             </button>
           ))}

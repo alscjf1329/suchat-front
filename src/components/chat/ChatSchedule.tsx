@@ -579,7 +579,7 @@ export default function ChatSchedule({
                       e.stopPropagation()
                       setIsCreating(true)
                     }}
-                    className="p-2.5 md:px-4 md:py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2 bg-[var(--icon-active)] text-white hover:opacity-90 font-semibold shadow-lg"
+                    className="p-2.5 md:px-4 md:py-2.5 rounded-xl transition-all duration-200 flex items-center justify-center md:justify-start md:space-x-2 bg-[var(--icon-active)] text-[var(--accent-contrast)] hover:opacity-90 font-semibold shadow-lg"
                     title={t('schedule.create')}
                   >
                     <svg className="w-5 h-5 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -756,7 +756,7 @@ export default function ChatSchedule({
                                 onClick={() => toggleParticipant(participant.id)}
                                 className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 flex items-center gap-1.5 ${
                                   formData.participantIds.includes(participant.id)
-                                    ? 'bg-[var(--icon-active)] text-white shadow-md hover:opacity-90'
+                                    ? 'bg-[var(--icon-active)] text-[var(--accent-contrast)] shadow-md hover:opacity-90'
                                     : 'bg-secondary text-primary hover:bg-divider border border-divider hover:border-[var(--icon-active)]/50'
                                 }`}
                               >
@@ -851,7 +851,7 @@ export default function ChatSchedule({
                   </Button>
                   <Button
                     onClick={editingSchedule ? handleUpdateSchedule : handleCreateSchedule}
-                    className="px-6 py-2.5 bg-[var(--icon-active)] hover:opacity-90 text-white"
+                    className="px-6 py-2.5 bg-[var(--icon-active)] hover:opacity-90 text-[var(--accent-contrast)]"
                   >
                     <span className="text-sm font-semibold">{editingSchedule ? t('common.save') : t('schedule.create')}</span>
                   </Button>
@@ -923,7 +923,7 @@ export default function ChatSchedule({
                       {isSameDateAsPrev ? (
                         <div className="absolute left-2 md:left-3 top-4 w-6 h-6 md:w-8 md:h-8 bg-[var(--icon-active)]/30 rounded-full flex items-center justify-center border-2 border-[var(--icon-active)]/50 z-10" />
                       ) : (
-                        <div className="absolute left-0 top-2 w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[var(--icon-active)] to-[var(--icon-active)]/80 rounded-full flex items-center justify-center shadow-lg border-4 border-primary z-10">
+                        <div className="absolute left-0 top-2 w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#38bdf8] to-[#0284c7]/80 rounded-full flex items-center justify-center shadow-lg border-4 border-primary z-10">
                           <span className="text-white text-lg md:text-xl font-bold">
                             {startDate.getDate()}
                           </span>

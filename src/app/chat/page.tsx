@@ -232,8 +232,19 @@ export default function ChatListPage() {
   )
 
   const formatTime = (date: Date) => {
+    // 카톡 스타일: 오늘은 시각, 어제는 '어제', 그 외는 날짜
     const d = new Date(date)
-    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    const now = new Date()
+    if (d.toDateString() === now.toDateString()) {
+      return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    }
+    const yesterday = new Date(now)
+    yesterday.setDate(now.getDate() - 1)
+    if (d.toDateString() === yesterday.toDateString()) return '어제'
+    if (d.getFullYear() === now.getFullYear()) {
+      return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
+    }
+    return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric' })
   }
 
   return (
@@ -250,7 +261,7 @@ export default function ChatListPage() {
       {/* 채팅 생성 모달 */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setIsCreateModalOpen(false)}>
-          <div className="bg-primary rounded-2xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+          <div className="card max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
             {/* 모달 헤더 */}
             <div className="p-4 border-b border-divider flex items-center justify-between">
               <h2 className="text-lg font-semibold text-primary">새 채팅</h2>
@@ -297,14 +308,14 @@ export default function ChatListPage() {
                     onClick={() => toggleFriendSelection(friend.id)}
                     className={`flex items-center space-x-3 p-3 rounded-xl cursor-pointer transition-all ${
                       selectedFriends.includes(friend.id)
-                        ? 'bg-[#0064FF]/10 border-2 border-[#0064FF]'
+                        ? 'bg-[var(--icon-active)]/10 border-2 border-[var(--icon-active)]'
                         : 'bg-secondary hover:bg-divider border-2 border-transparent'
                     }`}
                   >
                     {/* 체크박스 */}
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
                       selectedFriends.includes(friend.id)
-                        ? 'bg-[#0064FF] border-[#0064FF]'
+                        ? 'bg-[var(--icon-active)] border-[var(--icon-active)]'
                         : 'border-divider'
                     }`}>
                       {selectedFriends.includes(friend.id) && (
@@ -313,7 +324,7 @@ export default function ChatListPage() {
                     </div>
 
                     {/* 아바타 */}
-                    <div className="w-10 h-10 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center">
+                    <div className="w-10 h-10 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-xl flex items-center justify-center">
                       <span className="text-white font-medium text-sm">
                         {friend.name.charAt(0)}
                       </span>
@@ -349,7 +360,7 @@ export default function ChatListPage() {
                 disabled={selectedFriends.length === 0}
                 className={`w-full py-3 ${
                   selectedFriends.length > 0
-                    ? 'bg-[#0064FF] text-white'
+                    ? 'bg-[var(--icon-active)] text-[var(--accent-contrast)]'
                     : 'bg-secondary text-secondary cursor-not-allowed'
                 }`}
               >
@@ -362,19 +373,16 @@ export default function ChatListPage() {
         </div>
       )}
 
-      {/* 헤더 */}
-      <header className="bg-primary border-b border-divider px-2 h-16 flex items-center">
-        <div className="flex items-center justify-between w-full">
-          <div className="w-8"></div>
-          <h1 className="text-lg font-semibold text-primary">SuChat</h1>
-          <Button variant="ghost" onClick={handleOpenCreateModal} className="p-2">
-            <span className="text-[#0064FF] text-2xl font-light">+</span>
-          </Button>
-        </div>
+      {/* 헤더 — 토스식 큰 타이틀 */}
+      <header className="px-5 pt-6 pb-2 flex items-center justify-between">
+        <h1 className="text-[26px] font-extrabold text-primary">채팅</h1>
+        <Button variant="ghost" onClick={handleOpenCreateModal} className="p-2 -mr-2 rounded-full">
+          <span className="text-[var(--icon-active)] text-2xl font-light leading-none">＋</span>
+        </Button>
       </header>
 
       {/* 검색 바 */}
-      <div className="px-2 py-3 bg-primary">
+      <div className="px-4 pb-2">
         <Input
           type="text"
           value={searchQuery}
@@ -399,40 +407,37 @@ export default function ChatListPage() {
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1 px-2">
             {filteredRooms.map((room) => (
-              <div 
-                key={room.id} 
+              <div
+                key={room.id}
                 onClick={() => router.push(`/chat/${room.id}`)}
-                className="flex items-center space-x-2 py-3 px-1 mx-1 rounded-xl hover:bg-secondary cursor-pointer transition-all duration-200 bg-primary border border-divider"
+                className="list-row"
               >
-                {/* 아바타 */}
-                <div className="w-12 h-12 bg-gradient-to-br from-[#0064FF] to-[#0052CC] rounded-xl flex items-center justify-center flex-shrink-0">
-                  <span className="text-white font-medium text-sm">
+                {/* 아바타 — 물방울 */}
+                <div className="w-[52px] h-[52px] bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[20px] flex items-center justify-center flex-shrink-0 shadow-md shadow-sky-500/20">
+                  <span className="text-white font-bold text-lg">
                     {room.name.charAt(0)}
                   </span>
                 </div>
-                
+
                 {/* 채팅 정보 */}
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center mb-1">
-                    <h3 className="text-sm font-medium text-primary flex-1 truncate">
+                  <div className="flex items-baseline justify-between mb-0.5">
+                    <h3 className="text-[16px] font-semibold text-primary truncate">
                       {room.name}
                     </h3>
-                    <span className="text-xs text-secondary ml-2 flex-shrink-0">
+                    <span className="text-[12px] text-secondary ml-2 flex-shrink-0">
                       {formatTime(room.lastMessageAt || room.updatedAt)}
                     </span>
                   </div>
                   <div className="flex items-center">
-                    <p className="text-sm text-secondary flex-1 truncate">
+                    <p className="text-[14px] text-secondary flex-1 truncate">
                       {room.description || '메시지 없음'}
                     </p>
                     {(room.unreadCount ?? 0) > 0 && (
-                      <div className="relative ml-2 flex-shrink-0">
-                        <div className="bg-gradient-to-br from-[#FF3B30] to-[#FF2D55] text-white text-xs font-bold rounded-full min-w-[20px] h-5 px-2 flex items-center justify-center shadow-lg">
-                          {(room.unreadCount ?? 0) > 99 ? '99+' : room.unreadCount}
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-br from-[#FF3B30] to-[#FF2D55] rounded-full animate-ping opacity-75"></div>
+                      <div className="ml-2 flex-shrink-0 bg-[#ff4b4b] text-white text-[11px] font-bold rounded-full min-w-[20px] h-5 px-1.5 flex items-center justify-center">
+                        {(room.unreadCount ?? 0) > 99 ? '99+' : room.unreadCount}
                       </div>
                     )}
                   </div>

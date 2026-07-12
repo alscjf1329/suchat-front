@@ -70,18 +70,16 @@ function ResetPasswordContent() {
   return (
     <div className="min-h-screen w-full bg-primary flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* 로고 */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2">🔐 SuChat</h1>
-          <p className="text-secondary">새 비밀번호 설정</p>
-        </div>
-
         {/* 카드 */}
-        <div className="bg-primary border border-divider rounded-2xl p-8 shadow-lg">
+        <div className="card p-7">
           {!success ? (
             <>
-              <h2 className="text-xl font-bold text-primary mb-2">새 비밀번호 입력</h2>
-              <p className="text-secondary text-sm mb-6">
+              {/* 물방울 아이콘 */}
+              <div className="w-14 h-14 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[22px] rounded-tl-md flex items-center justify-center mb-5 shadow-lg shadow-sky-500/30">
+                <span className="text-2xl">🔐</span>
+              </div>
+              <h2 className="text-[24px] font-extrabold text-primary mb-1.5">새 비밀번호 입력</h2>
+              <p className="text-[15px] text-secondary mb-6">
                 새로운 비밀번호를 입력해주세요. 안전한 비밀번호로 설정하는 것을 권장합니다.
               </p>
 
@@ -117,14 +115,14 @@ function ResetPasswordContent() {
                 </div>
 
                 {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                  <div className="bg-red-500/10 text-red-500 px-4 py-3 rounded-2xl text-sm">
                     {error}
                   </div>
                 )}
 
                 <Button
                   type="submit"
-                  className="w-full"
+                  className="w-full py-4 text-[16px]"
                   disabled={loading || !token || !newPassword || !confirmPassword}
                 >
                   {loading ? '변경 중...' : '비밀번호 변경'}
@@ -134,7 +132,7 @@ function ResetPasswordContent() {
               <div className="mt-6 text-center">
                 <button
                   onClick={() => router.push('/login')}
-                  className="text-[#0064FF] text-sm hover:underline"
+                  className="text-[var(--icon-active)] text-sm hover:underline"
                 >
                   ← 로그인으로 돌아가기
                 </button>
@@ -142,20 +140,22 @@ function ResetPasswordContent() {
             </>
           ) : (
             <div className="text-center">
-              <div className="mb-4 text-5xl">✅</div>
-              <h2 className="text-xl font-bold text-primary mb-2">비밀번호 변경 완료!</h2>
-              <p className="text-secondary text-sm mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-[#38bdf8] to-[#0284c7] rounded-[26px] rounded-tl-md flex items-center justify-center mx-auto mb-5 shadow-lg shadow-sky-500/30">
+                <span className="text-3xl text-white font-bold">✓</span>
+              </div>
+              <h2 className="text-[22px] font-extrabold text-primary mb-2">비밀번호 변경 완료</h2>
+              <p className="text-[15px] text-secondary mb-6">
                 비밀번호가 성공적으로 변경되었습니다.<br />
                 새 비밀번호로 로그인해주세요.
               </p>
 
-              <div className="bg-blue-50 border border-blue-200 text-blue-700 px-4 py-3 rounded-lg text-sm mb-6">
-                <p className="text-xs">잠시 후 로그인 페이지로 이동합니다...</p>
+              <div className="bg-secondary text-secondary px-4 py-3 rounded-2xl text-xs mb-6">
+                잠시 후 로그인 페이지로 이동합니다...
               </div>
 
               <Button
                 onClick={() => router.push('/login')}
-                className="w-full"
+                className="w-full py-4 text-[16px]"
               >
                 지금 로그인하기
               </Button>
@@ -177,7 +177,7 @@ export default function ResetPasswordPage() {
     <Suspense fallback={
       <div className="min-h-screen bg-primary flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0064FF] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--icon-active)] mx-auto mb-4"></div>
           <p className="text-secondary">로딩 중...</p>
         </div>
       </div>

@@ -21,13 +21,13 @@ export default function Button({
   onClick,
   className = ''
 }: ButtonProps) {
-  const baseClasses = "font-medium rounded-xl transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center justify-center"
-  
+  const baseClasses = "font-semibold rounded-2xl transition-all duration-200 active:scale-[0.97] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--icon-active)]/50 flex items-center justify-center"
+
   const variantClasses = {
-    primary: "bg-[#0064FF] hover:bg-[#0052CC] disabled:bg-[#0064FF]/50 text-white focus:ring-[#0064FF] shadow-md hover:shadow-lg",
-    secondary: "bg-secondary hover:bg-divider disabled:bg-secondary/50 text-primary focus:ring-secondary shadow-md hover:shadow-lg",
-    outline: "border-2 border-[#0064FF] text-[#0064FF] hover:bg-secondary disabled:border-divider disabled:text-secondary focus:ring-[#0064FF]",
-    ghost: "text-[#0064FF] hover:bg-secondary disabled:text-secondary focus:ring-[#0064FF]"
+    primary: "btn-primary disabled:opacity-50",
+    secondary: "bg-secondary hover:bg-secondary/80 disabled:opacity-50 text-primary backdrop-blur-xl border border-divider",
+    outline: "border border-[var(--icon-active)]/60 text-[var(--icon-active)] hover:bg-secondary disabled:border-divider disabled:text-secondary backdrop-blur-xl",
+    ghost: "text-[var(--icon-active)] hover:bg-secondary disabled:text-secondary"
   }
   
   const sizeClasses = {

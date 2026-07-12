@@ -488,16 +488,16 @@ export default function SettingsPage() {
     switch (item.type) {
       case 'toggle':
         return (
-          <div key={item.id} className="flex items-center justify-between py-3 px-4">
-            <span className="text-sm text-primary">{item.label}</span>
+          <div key={item.id} className="flex items-center justify-between py-3.5 px-4">
+            <span className="text-[15px] text-primary">{item.label}</span>
             <button
               onClick={() => handleSettingChange(section.id, item.id, !item.value)}
-              className={`w-12 h-6 rounded-full transition-colors duration-200 ${
-                item.value ? 'bg-[#0064FF]' : 'bg-gray-300'
+              className={`w-[52px] h-7 rounded-full transition-colors duration-200 ${
+                item.value ? 'bg-[var(--icon-active)]' : 'bg-gray-300 dark:bg-gray-600'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full transition-transform duration-200 ${
-                item.value ? 'translate-x-6' : 'translate-x-0.5'
+              <div className={`w-6 h-6 rounded-full shadow-sm transition-transform duration-200 ${
+                item.value ? 'translate-x-[24px] bg-[var(--accent-contrast)]' : 'translate-x-0.5 bg-white'
               }`} />
             </button>
           </div>
@@ -539,9 +539,9 @@ export default function SettingsPage() {
           <button
             key={item.id}
             onClick={item.action}
-            className="w-full flex items-center justify-between py-3 px-4 hover:bg-secondary transition-colors duration-200"
+            className="w-full flex items-center justify-between py-3.5 px-4 hover:bg-secondary transition-colors duration-200"
           >
-            <span className="text-sm text-primary">{item.label}</span>
+            <span className="text-[15px] text-primary">{item.label}</span>
             <span className="text-secondary">›</span>
           </button>
         )
@@ -553,18 +553,14 @@ export default function SettingsPage() {
 
   return (
     <div className="h-screen w-full bg-primary flex flex-col">
-      {/* 헤더 */}
-      <header className="bg-primary border-b border-divider px-2 h-16 flex items-center">
-        <div className="flex items-center justify-between w-full">
-          <div className="w-8"></div>
-          <h1 className="text-lg font-semibold text-primary">{t('settings.title')}</h1>
-          <div className="w-8"></div>
-        </div>
+      {/* 헤더 — 토스식 큰 타이틀 */}
+      <header className="px-5 pt-6 pb-2 flex items-center">
+        <h1 className="text-[26px] font-extrabold text-primary">{t('settings.title')}</h1>
       </header>
 
       {/* 설정 목록 */}
       <div className="flex-1 overflow-y-auto scrollbar-hide">
-        <div className="space-y-2 p-2">
+        <div className="space-y-3 px-4 py-2">
           {settingSections.map((section) => {
             // 기기 관리 섹션은 기기가 있을 때만 표시
             if (section.id === 'devices' && devices.length === 0 && !isLoadingDevices) {
@@ -572,18 +568,18 @@ export default function SettingsPage() {
             }
             
             return (
-            <div key={section.id} className="bg-primary border border-divider rounded-xl overflow-hidden">
+            <div key={section.id} className="card overflow-hidden">
               {/* 섹션 헤더 */}
               <button
                 onClick={() => toggleSection(section.id)}
                 className="w-full flex items-center justify-between p-4 hover:bg-secondary transition-colors duration-200"
               >
                 <div className="flex items-center space-x-3">
-                  <span className="text-xl">{section.icon}</span>
-                  <span className="text-sm font-medium text-primary">{section.title}</span>
+                  <span className="w-10 h-10 rounded-[14px] bg-secondary flex items-center justify-center text-lg">{section.icon}</span>
+                  <span className="text-[16px] font-semibold text-primary">{section.title}</span>
                 </div>
-                <span className="text-secondary">
-                  {expandedSection === section.id ? '▲' : '▼'}
+                <span className={`text-secondary text-sm transition-transform duration-200 ${expandedSection === section.id ? 'rotate-180' : ''}`}>
+                  ⌄
                 </span>
               </button>
 
@@ -649,7 +645,7 @@ export default function SettingsPage() {
                                           />
                                           <button
                                             onClick={() => handleSaveDeviceName(device.deviceId)}
-                                            className="px-3 py-1 bg-[#0064FF] text-white text-xs rounded hover:bg-[#0052CC]"
+                                            className="px-3 py-1 bg-[var(--icon-active)] text-[var(--accent-contrast)] text-xs rounded hover:bg-[var(--icon-active)]"
                                           >
                                             저장
                                           </button>
@@ -670,7 +666,7 @@ export default function SettingsPage() {
                                               {device.deviceName || `${deviceTypeLabels[device.deviceType] || '기기'}`}
                                             </span>
                                             {isCurrentDevice && (
-                                              <span className="px-2 py-0.5 bg-[#0064FF] text-white text-xs rounded">
+                                              <span className="px-2 py-0.5 bg-[var(--icon-active)] text-[var(--accent-contrast)] text-xs rounded">
                                                 현재 기기
                                               </span>
                                             )}

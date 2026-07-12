@@ -26,9 +26,9 @@ function Toast({
   }, [duration, onClose])
 
   const typeStyles = {
-    success: 'bg-green-500 text-white',
-    error: 'bg-red-500 text-white',
-    info: 'bg-[#0064FF] text-white',
+    success: 'bg-green-500/85 text-white',
+    error: 'bg-red-500/85 text-white',
+    info: 'bg-sky-600/85 text-white',
   }
 
   const icons = {
@@ -48,11 +48,11 @@ function Toast({
       <div 
         className={`
           ${typeStyles[type]}
-          px-6 py-4 rounded-2xl shadow-xl
+          px-6 py-4 rounded-3xl shadow-xl
           flex items-center gap-3
           min-w-[300px] max-w-md
-          backdrop-blur-sm
-          border border-white/20
+          backdrop-blur-xl
+          border border-white/25
           animate-slide-down
           pointer-events-auto
         `}
