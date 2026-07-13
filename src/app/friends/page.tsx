@@ -6,6 +6,7 @@ import { useTranslation } from '@/contexts/I18nContext'
 import { useAuth } from '@/contexts/AuthContext'
 import { Input, Button, BottomNavigation, Toast, ToastType } from '@/components/ui'
 import { apiClient, User } from '@/lib/api'
+import { cacheGet, cacheSet } from '@/lib/cache'
 
 export default function FriendsPage() {
   const { t } = useTranslation()
@@ -50,20 +51,25 @@ export default function FriendsPage() {
   }, [authLoading, currentUser])
 
   const loadFriends = async () => {
+    // 캐시 먼저 즉시 표시 (체감 속도), 네트워크로 갱신
+    const cached = cacheGet<User[]>(`friends:${currentUser?.id}`)
+    if (cached) setUsers(cached)
+
     try {
-      setIsLoading(true)
+      if (!cached) setIsLoading(true)
       // 실제 친구 관계(accepted)만 조회
       const response = await apiClient.getFriends()
       // friends 테이블에서 가져온 데이터를 User 형식으로 변환
       const friendsList = response.data?.map((friendship: any) => {
         // 현재 사용자가 requester인 경우 addressee를, addressee인 경우 requester를 친구로 표시
-        const friend = friendship.requesterId === currentUser?.id 
-          ? friendship.addressee 
+        const friend = friendship.requesterId === currentUser?.id
+          ? friendship.addressee
           : friendship.requester
         return friend
       }).filter((friend: any) => friend) || []
-      
+
       setUsers(friendsList)
+      cacheSet(`friends:${currentUser?.id}`, friendsList)
     } catch (error) {
       console.error('친구 목록 로드 실패:', error)
     } finally {

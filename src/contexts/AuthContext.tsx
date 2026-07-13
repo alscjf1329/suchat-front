@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { useRouter, usePathname } from 'next/navigation'
 import { apiClient, User } from '@/lib/api'
 import { initializePushNotifications } from '@/lib/push'
+import { cacheClear } from '@/lib/cache'
 
 interface AuthContextType {
   user: User | null
@@ -150,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     localStorage.removeItem('deviceType')
+    cacheClear() // 캐시된 대화 내용/목록 삭제 (다른 사용자에게 노출 방지)
     setUser(null)
     router.replace('/login')
     console.log('👋 로그아웃 완료')

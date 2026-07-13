@@ -6,6 +6,7 @@ import { Input, Button, BottomNavigation, Toast, ToastType } from '@/components/
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient, User } from '@/lib/api'
 import socketClient, { ChatRoom } from '@/lib/socket'
+import { cacheGet, cacheSet } from '@/lib/cache'
 
 interface ToastState {
   show: boolean
@@ -159,15 +160,23 @@ export default function ChatListPage() {
   const loadChatRooms = async () => {
     if (!currentUser) return
 
+    // 캐시 먼저 즉시 표시 (체감 속도), 네트워크로 갱신
+    const cached = cacheGet<ChatRoom[]>(`rooms:${currentUser.id}`)
+    if (cached) {
+      setChatRooms(cached)
+      setIsLoading(false)
+    }
+
     try {
-      setIsLoading(true)
+      if (!cached) setIsLoading(true)
       const rooms = await socketClient.getUserRooms(currentUser.id)
-      
+
       // 서버에서 unreadCount 포함해서 옴
       setChatRooms(rooms)
+      cacheSet(`rooms:${currentUser.id}`, rooms)
     } catch (error) {
       console.error('채팅방 목록 로드 실패:', error)
-      showToast('채팅방 목록을 불러오는데 실패했습니다.', 'error')
+      if (!cached) showToast('채팅방 목록을 불러오는데 실패했습니다.', 'error')
     } finally {
       setIsLoading(false)
     }

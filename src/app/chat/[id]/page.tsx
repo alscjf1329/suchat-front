@@ -10,6 +10,7 @@ import { apiClient } from '@/lib/api'
 import socketClient, { Message as SocketMessage, ChatRoom } from '@/lib/socket'
 import { clearChatNotifications } from '@/lib/push'
 import { detectDeviceType } from '@/lib/device'
+import { cacheGet, cacheSet } from '@/lib/cache'
 import ChatSchedule from '@/components/chat/ChatSchedule'
 
 export default function ChatRoomPage() {
@@ -357,6 +358,17 @@ export default function ChatRoomPage() {
 
     console.log('✅ [ChatRoom] 인증 완료 - 소켓 연결 시작')
 
+    // 캐시된 메시지/방 정보 먼저 표시 — 소켓 응답이 오면 최신으로 교체됨 (체감 속도)
+    const cachedMessages = cacheGet<SocketMessage[]>(`messages:${chatId}`)
+    if (cachedMessages && cachedMessages.length > 0) {
+      setMessages(cachedMessages)
+      setIsLoading(false)
+    }
+    const cachedRoomInfo = cacheGet<ChatRoom>(`roominfo:${chatId}`)
+    if (cachedRoomInfo) {
+      setRoomInfo(cachedRoomInfo)
+    }
+
     // Socket 연결 (AuthContext가 완전히 로드된 후)
     const socket = socketClient.connect()
 
@@ -412,6 +424,8 @@ export default function ChatRoomPage() {
       const orderedMessages = roomMessages.reverse()
       setMessages(orderedMessages)
       setIsLoading(false)
+      // 마지막 50개를 캐시 (다음 입장 시 즉시 표시용)
+      cacheSet(`messages:${chatId}`, orderedMessages.slice(-50))
       
       // 초기 메시지가 50개(limit)면 더 있을 가능성 있음
       setHasMoreMessages(orderedMessages.length >= 50)
@@ -433,6 +447,7 @@ export default function ChatRoomPage() {
     })
     socketClient.onRoomInfo((room) => {
       setRoomInfo(room)
+      cacheSet(`roominfo:${chatId}`, room)
     })
     socketClient.onUnreadCount((data) => {
       setUnreadCount(data.count)
