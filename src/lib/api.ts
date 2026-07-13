@@ -318,6 +318,14 @@ class ApiClient {
     });
   }
 
+  // 링크 미리보기 (OG 태그)
+  async getLinkPreview(url: string): Promise<ApiResponse<{ url: string; title?: string; description?: string; image?: string; siteName?: string } | null>> {
+    return this.request(`/chat/link-preview?url=${encodeURIComponent(url)}`, {
+      method: 'GET',
+      headers: this.getAuthHeaders(),
+    });
+  }
+
   // 친구 요청 삭제 (취소)
   async deleteFriendRequest(friendId: string): Promise<ApiResponse<void>> {
     return this.request(`/friends/${friendId}`, {

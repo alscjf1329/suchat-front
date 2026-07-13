@@ -13,6 +13,54 @@ import { detectDeviceType } from '@/lib/device'
 import { cacheGet, cacheSet } from '@/lib/cache'
 import ChatSchedule from '@/components/chat/ChatSchedule'
 
+// 링크 미리보기 카드 (카톡 스타일) — OG 메타는 백엔드가 파싱, 결과는 localStorage 캐시
+function LinkPreviewCard({ url, isMine }: { url: string; isMine: boolean }) {
+  const [meta, setMeta] = useState<{ url: string; title?: string; description?: string; image?: string; siteName?: string } | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    const cached = cacheGet<NonNullable<typeof meta>>(`linkpreview:${url}`)
+    if (cached) {
+      setMeta(cached)
+      return
+    }
+    apiClient.getLinkPreview(url)
+      .then(res => {
+        if (alive && res.success && res.data?.title) {
+          setMeta(res.data)
+          cacheSet(`linkpreview:${url}`, res.data)
+        }
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [url])
+
+  if (!meta) return null
+
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      className={`block mt-2 rounded-xl overflow-hidden border transition-opacity hover:opacity-90 ${
+        isMine ? 'bg-black/20 border-white/20' : 'bg-primary/70 border-divider'
+      }`}
+    >
+      {meta.image && (
+        <img src={meta.image} alt="" className="w-full h-32 object-cover" loading="lazy" />
+      )}
+      <div className="px-3 py-2.5">
+        <p className={`text-[13px] font-semibold truncate ${isMine ? 'text-white' : 'text-primary'}`}>{meta.title}</p>
+        {meta.description && (
+          <p className={`text-[12px] mt-0.5 line-clamp-2 ${isMine ? 'text-white/70' : 'text-secondary'}`}>{meta.description}</p>
+        )}
+        <p className={`text-[11px] mt-1 ${isMine ? 'text-white/50' : 'text-secondary'}`}>{meta.siteName}</p>
+      </div>
+    </a>
+  )
+}
+
 export default function ChatRoomPage() {
   const { t } = useTranslation()
   const { user: currentUser, isLoading: authLoading } = useAuth()
@@ -2021,7 +2069,7 @@ export default function ChatRoomPage() {
         return (
           <a
             key={index}
-            className="text-blue-400 hover:text-blue-300 underline break-all cursor-pointer"
+            className="msg-link underline break-all cursor-pointer"
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
@@ -2045,6 +2093,8 @@ export default function ChatRoomPage() {
   const renderMessage = useCallback((msg: SocketMessage) => {
     const isMyMessage = msg.userId === currentUser?.id
     const fileUrl = getFileUrl(msg.fileUrl)
+    // 텍스트 메시지의 첫 링크는 미리보기 카드로
+    const firstUrl = msg.type === 'text' ? msg.content?.match(/https?:\/\/[^\s]+/)?.[0] : undefined
     
     return (
       <div
@@ -2064,7 +2114,10 @@ export default function ChatRoomPage() {
           } ${msg.isPending ? 'opacity-60' : ''}`}
         >
           {msg.type === 'text' ? (
-            <p className="text-[15px] leading-relaxed">{renderTextWithLinks(msg.content)}</p>
+            <>
+              <p className="text-[15px] leading-relaxed">{renderTextWithLinks(msg.content)}</p>
+              {firstUrl && <LinkPreviewCard url={firstUrl} isMine={isMyMessage} />}
+            </>
           ) : msg.type === 'image' ? (
             <div className="space-y-2">
               <img
