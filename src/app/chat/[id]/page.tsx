@@ -51,6 +51,8 @@ export default function ChatRoomPage() {
   // 메뉴 상태
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAlbumOpen, setIsAlbumOpen] = useState(false)
+  // 인앱 미디어 뷰어 (사진/영상 라이트박스)
+  const [mediaViewer, setMediaViewer] = useState<{ type: 'image' | 'video'; url: string; name?: string } | null>(null)
   const [albumPhotos, setAlbumPhotos] = useState<any[]>([])
   const [albumFolders, setAlbumFolders] = useState<any[]>([])
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null)
@@ -2050,11 +2052,11 @@ export default function ChatRoomPage() {
             <p className="text-[15px] leading-relaxed">{renderTextWithLinks(msg.content)}</p>
           ) : msg.type === 'image' ? (
             <div className="space-y-2">
-              <img 
-                src={fileUrl} 
+              <img
+                src={fileUrl}
                 alt={msg.fileName || msg.content}
-                className="rounded-lg max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity object-contain"
-                onClick={() => window.open(fileUrl, '_blank')}
+                className="rounded-xl max-w-full h-auto cursor-pointer hover:opacity-90 transition-opacity object-contain"
+                onClick={() => setMediaViewer({ type: 'image', url: fileUrl, name: msg.fileName })}
               />
               {/* 텍스트가 있을 때만 표시 (파일명은 숨김) */}
               {msg.content && msg.content !== msg.fileName && (
@@ -2081,8 +2083,8 @@ export default function ChatRoomPage() {
                   return (
                     <div
                       key={index}
-                      className="aspect-square bg-gray-200 rounded cursor-pointer hover:opacity-90 transition-opacity overflow-hidden"
-                      onClick={() => window.open(imageUrl, '_blank')}
+                      className="aspect-square bg-secondary rounded-lg cursor-pointer hover:opacity-90 transition-opacity overflow-hidden"
+                      onClick={() => setMediaViewer({ type: 'image', url: imageUrl, name: file.fileName })}
                     >
                       <img
                         src={thumbnailUrl}
@@ -2100,11 +2102,22 @@ export default function ChatRoomPage() {
             </div>
           ) : msg.type === 'video' ? (
             <div className="space-y-2">
-              <video 
-                src={fileUrl} 
-                controls
-                className="rounded-lg max-w-full h-auto"
-              />
+              <div className="relative group/video">
+                <video
+                  src={fileUrl}
+                  controls
+                  preload="metadata"
+                  className="rounded-xl max-w-full h-auto"
+                />
+                {/* 크게 보기 버튼 */}
+                <button
+                  onClick={() => setMediaViewer({ type: 'video', url: fileUrl, name: msg.fileName })}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/50 hover:bg-black/70 text-white text-sm flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity backdrop-blur-sm"
+                  aria-label="크게 보기"
+                >
+                  ⛶
+                </button>
+              </div>
               {/* 텍스트가 있을 때만 표시 (파일명은 숨김) */}
               {msg.content && msg.content !== msg.fileName && (
                 <p className="text-sm">{msg.content}</p>
@@ -2128,7 +2141,7 @@ export default function ChatRoomPage() {
   return (
     <div className="h-screen w-full bg-primary flex flex-col overflow-hidden">
       {/* 헤더 - 고정 */}
-      <header className="sticky top-0 bg-primary border-b border-divider px-4 h-16 flex items-center justify-between flex-shrink-0">
+      <header className="sticky top-0 z-20 bg-primary border-b border-divider px-4 h-16 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3">
           <Button
             variant="ghost"
@@ -2162,116 +2175,89 @@ export default function ChatRoomPage() {
             <span className="text-secondary text-lg">📹</span>
           </Button>
           <div className="relative">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="p-2"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               <span className="text-secondary text-lg">⋯</span>
             </Button>
-            
-            {/* 사이드 메뉴 */}
-            {isMenuOpen && (
-              <>
-                {/* 배경 오버레이 */}
-                <div 
-                  className="fixed inset-0 bg-black/50 z-[100] animate-fadeIn"
-                  onClick={() => setIsMenuOpen(false)}
-                />
-                
-                {/* 오른쪽에서 슬라이드되는 메뉴 */}
-                <div className="fixed right-0 top-0 bottom-0 h-screen w-full md:w-1/2 bg-primary z-[100] shadow-2xl animate-slideInRight flex flex-col">
-                  {/* 메뉴 헤더 */}
-                  <div className="flex items-center justify-between px-6 py-4 border-b border-divider">
-                    <h2 className="text-lg font-semibold text-primary">메뉴</h2>
-                    <button
-                      onClick={() => setIsMenuOpen(false)}
-                      className="p-2 hover:bg-secondary rounded-lg transition-colors"
-                    >
-                      <span className="text-2xl text-secondary">✕</span>
-                    </button>
-                  </div>
-                  
-                  {/* 메뉴 리스트 */}
-                  <div className="flex-1 overflow-y-auto">
-                    <button
-                      onClick={() => {
-                        setIsAlbumOpen(true)
-                        setSelectedFolderId(null)
-                        loadFolders()
-                        loadAlbumInitial(null)
-                      }}
-                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
-                    >
-                      <span className="text-3xl">📷</span>
-                      <div>
-                        <p className="text-primary font-semibold text-base">{t('album.title')}</p>
-                        <p className="text-xs text-secondary mt-1">채팅방 멤버들이 공유한 사진/동영상</p>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setIsScheduleOpen(true)
-                        setIsMenuOpen(false)
-                      }}
-                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
-                    >
-                      <span className="text-3xl">📅</span>
-                      <div>
-                        <p className="text-primary font-semibold text-base">{t('schedule.title')}</p>
-                        <p className="text-xs text-secondary mt-1">채팅방 인원끼리 일정 공유</p>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false)
-                        showToast('준비 중인 기능입니다.', 'info')
-                      }}
-                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
-                    >
-                      <span className="text-3xl">🔍</span>
-                      <div>
-                        <p className="text-primary font-medium">메시지 검색</p>
-                        <p className="text-xs text-secondary mt-1">대화 내용을 검색합니다</p>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false)
-                        showToast('준비 중인 기능입니다.', 'info')
-                      }}
-                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
-                    >
-                      <span className="text-3xl">⚙️</span>
-                      <div>
-                        <p className="text-primary font-medium">채팅방 설정</p>
-                        <p className="text-xs text-secondary mt-1">알림, 배경 등을 설정합니다</p>
-                      </div>
-                    </button>
-                    
-                    <button
-                      onClick={() => {
-                        setIsMenuOpen(false)
-                        showToast('준비 중인 기능입니다.', 'info')
-                      }}
-                      className="w-full px-6 py-4 text-left hover:bg-secondary active:bg-divider transition-colors flex items-center space-x-4 border-b border-divider"
-                    >
-                      <span className="text-3xl">👥</span>
-                      <div>
-                        <p className="text-primary font-medium">참여자 보기</p>
-                        <p className="text-xs text-secondary mt-1">채팅방 참여자 목록</p>
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
           </div>
         </div>
       </header>
+
+      {/* 사이드 메뉴 — header 밖에 렌더 (header의 backdrop-filter가 fixed 기준점을 바꿔버리기 때문) */}
+      {isMenuOpen && (
+        <>
+          {/* 배경 오버레이 */}
+          <div
+            className="fixed inset-0 bg-black/50 z-[100] animate-fadeIn"
+            onClick={() => setIsMenuOpen(false)}
+          />
+
+          {/* 오른쪽에서 슬라이드되는 메뉴 — 토스식 글래스 패널 */}
+          <div className="fixed right-0 top-0 bottom-0 w-full max-w-sm bg-primary z-[110] shadow-2xl animate-slideInRight flex flex-col md:rounded-l-[28px] border-l border-divider">
+            {/* 메뉴 헤더 */}
+            <div className="flex items-center justify-between px-6 pt-7 pb-3">
+              <h2 className="text-[24px] font-extrabold text-primary">메뉴</h2>
+              <button
+                onClick={() => setIsMenuOpen(false)}
+                className="w-9 h-9 rounded-full bg-secondary hover:opacity-80 flex items-center justify-center transition-opacity"
+                aria-label="닫기"
+              >
+                <span className="text-lg text-secondary">✕</span>
+              </button>
+            </div>
+
+            {/* 메뉴 리스트 — 아이콘 타일 행 */}
+            <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1">
+              {[
+                {
+                  icon: '📷', title: t('album.title'), desc: '채팅방 멤버들이 공유한 사진/동영상',
+                  onClick: () => {
+                    setIsAlbumOpen(true)
+                    setSelectedFolderId(null)
+                    loadFolders()
+                    loadAlbumInitial(null)
+                  },
+                },
+                {
+                  icon: '📅', title: t('schedule.title'), desc: '채팅방 인원끼리 일정 공유',
+                  onClick: () => {
+                    setIsScheduleOpen(true)
+                    setIsMenuOpen(false)
+                  },
+                },
+                {
+                  icon: '🔍', title: '메시지 검색', desc: '대화 내용을 검색합니다',
+                  onClick: () => { setIsMenuOpen(false); showToast('준비 중인 기능입니다.', 'info') },
+                },
+                {
+                  icon: '⚙️', title: '채팅방 설정', desc: '알림, 배경 등을 설정합니다',
+                  onClick: () => { setIsMenuOpen(false); showToast('준비 중인 기능입니다.', 'info') },
+                },
+                {
+                  icon: '👥', title: '참여자 보기', desc: '채팅방 참여자 목록',
+                  onClick: () => { setIsMenuOpen(false); showToast('준비 중인 기능입니다.', 'info') },
+                },
+              ].map((item) => (
+                <button
+                  key={item.title}
+                  onClick={item.onClick}
+                  className="w-full px-3.5 py-3 text-left rounded-2xl hover:bg-secondary active:scale-[0.98] transition-all duration-150 flex items-center gap-3.5"
+                >
+                  <span className="w-11 h-11 rounded-[16px] bg-secondary flex items-center justify-center text-xl flex-shrink-0">{item.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-primary font-semibold text-[15px]">{item.title}</p>
+                    <p className="text-[12px] text-secondary mt-0.5 truncate">{item.desc}</p>
+                  </div>
+                  <span className="ml-auto text-secondary">›</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 메시지 목록 */}
       <div 
@@ -2541,6 +2527,54 @@ export default function ChatRoomPage() {
           type={toast.type}
           onClose={() => setToast(null)}
         />
+      )}
+
+      {/* 미디어 뷰어 (사진/영상 라이트박스) */}
+      {mediaViewer && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-sm flex flex-col animate-fadeIn"
+          onClick={() => setMediaViewer(null)}
+        >
+          {/* 상단 바 */}
+          <div className="flex items-center justify-between px-4 py-3 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            <p className="text-white/80 text-sm truncate max-w-[60%]">{mediaViewer.name || ''}</p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => window.open(mediaViewer.url, '_blank')}
+                className="px-4 py-2 rounded-full bg-white/15 hover:bg-white/25 text-white text-sm font-medium transition-colors"
+              >
+                원본 보기
+              </button>
+              <button
+                onClick={() => setMediaViewer(null)}
+                className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 text-white text-xl flex items-center justify-center transition-colors"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* 미디어 영역 */}
+          <div className="flex-1 flex items-center justify-center p-4 min-h-0">
+            {mediaViewer.type === 'image' ? (
+              <img
+                src={mediaViewer.url}
+                alt={mediaViewer.name || '이미지'}
+                className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            ) : (
+              <video
+                src={mediaViewer.url}
+                controls
+                autoPlay
+                className="max-w-full max-h-full rounded-2xl shadow-2xl"
+                onClick={(e) => e.stopPropagation()}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       {/* 사진첩 모달 */}
@@ -2891,7 +2925,11 @@ export default function ChatRoomPage() {
                                 togglePhotoSelection(photo.id)
                               }
                             } else {
-                              window.open(fileUrl, '_blank')
+                              setMediaViewer({
+                                type: photo.type === 'image' ? 'image' : 'video',
+                                url: fileUrl,
+                                name: photo.fileName,
+                              })
                             }
                           }}
                         >
@@ -2920,12 +2958,17 @@ export default function ChatRoomPage() {
                             />
                           ) : (
                             <div className="relative w-full h-full">
+                              {/* ponytail: preload=metadata — 타일마다 영상 전체를 받지 않도록 */}
                               <video
                                 src={fileUrl}
+                                preload="metadata"
+                                muted
                                 className="w-full h-full object-cover"
                               />
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-                                <span className="text-4xl">▶️</span>
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-black/40 to-transparent">
+                                <div className="w-12 h-12 rounded-full bg-white/25 backdrop-blur-sm flex items-center justify-center">
+                                  <span className="text-white text-xl ml-0.5">▶</span>
+                                </div>
                               </div>
                             </div>
                           )}
