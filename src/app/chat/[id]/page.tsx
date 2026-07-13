@@ -2215,6 +2215,7 @@ export default function ChatRoomPage() {
                 {
                   icon: '📷', title: t('album.title'), desc: '채팅방 멤버들이 공유한 사진/동영상',
                   onClick: () => {
+                    setIsMenuOpen(false)
                     setIsAlbumOpen(true)
                     setSelectedFolderId(null)
                     loadFolders()
@@ -2581,13 +2582,13 @@ export default function ChatRoomPage() {
       {isAlbumOpen && (
         <>
           {/* 배경 오버레이 */}
-          <div 
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300"
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] transition-opacity duration-300"
             onClick={() => setIsAlbumOpen(false)}
           />
-          
+
           {/* 사진첩 콘텐츠 */}
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6">
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-6">
             <div 
               className="bg-primary rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col border border-gray-200/30 dark:border-gray-700/30 overflow-hidden transition-all duration-300"
               onClick={(e) => e.stopPropagation()}

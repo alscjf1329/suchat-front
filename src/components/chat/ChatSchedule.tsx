@@ -543,14 +543,14 @@ export default function ChatSchedule({
 
   return (
     <>
-      <div 
-        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 transition-opacity duration-300"
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120] transition-opacity duration-300"
         onClick={onClose}
       />
-      
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6">
-        <div 
-          className="bg-primary rounded-3xl w-full max-w-5xl max-h-[92vh] flex flex-col border border-gray-200/30 dark:border-gray-700/30 overflow-hidden transition-all duration-300"
+
+      <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 md:p-6">
+        <div
+          className="bg-primary rounded-[28px] w-full max-w-3xl max-h-[92vh] flex flex-col border border-divider overflow-hidden transition-all duration-300"
           onClick={(e) => e.stopPropagation()}
         >
           {/* 헤더 */}
@@ -887,7 +887,7 @@ export default function ChatSchedule({
                     </Button>
                   </div>
                 ) : (
-                  <div className="space-y-6">
+                  <div className="space-y-2 px-1">
                 {schedules.map((schedule, index) => {
                   const startDate = parseDateFromString(schedule.startDate)
                   const endDate = schedule.endDate ? parseDateFromString(schedule.endDate) : null
@@ -901,40 +901,37 @@ export default function ChatSchedule({
                     startDate.getMonth() === prevStartDate.getMonth() &&
                     startDate.getDate() === prevStartDate.getDate()
                   
-                  // 다음 일정과 같은 날짜인지 확인
-                  const nextSchedule = index < schedules.length - 1 ? schedules[index + 1] : null
-                  const nextStartDate = nextSchedule ? parseDateFromString(nextSchedule.startDate) : null
-                  const isSameDateAsNext = nextStartDate && 
-                    startDate.getFullYear() === nextStartDate.getFullYear() &&
-                    startDate.getMonth() === nextStartDate.getMonth() &&
-                    startDate.getDate() === nextStartDate.getDate()
-                  
+                  // D-day 계산 (자정 기준)
+                  const today = new Date(); today.setHours(0, 0, 0, 0)
+                  const schedDay = new Date(startDate); schedDay.setHours(0, 0, 0, 0)
+                  const dday = Math.round((schedDay.getTime() - today.getTime()) / 86400000)
+                  const isPast = (endDate || startDate).getTime() < Date.now()
+
                   return (
-                    <div
-                      key={schedule.id}
-                      className={`relative pl-10 md:pl-12 ${isSameDateAsPrev ? 'pb-4' : 'pb-8'} last:pb-0`}
-                    >
-                      {/* 타임라인 라인 */}
-                      {index < schedules.length - 1 && (
-                        <div className={`absolute left-5 md:left-6 top-12 bottom-0 w-0.5 bg-gradient-to-b from-[var(--icon-active)] ${isSameDateAsNext ? 'to-[var(--icon-active)]/30' : 'to-divider'}`} />
-                      )}
-                      
-                      {/* 타임라인 점 - 같은 날짜면 작게 표시 */}
-                      {isSameDateAsPrev ? (
-                        <div className="absolute left-2 md:left-3 top-4 w-6 h-6 md:w-8 md:h-8 bg-[var(--icon-active)]/30 rounded-full flex items-center justify-center border-2 border-[var(--icon-active)]/50 z-10" />
-                      ) : (
-                        <div className="absolute left-0 top-2 w-10 h-10 md:w-12 md:h-12 bg-gradient-to-br from-[#38bdf8] to-[#0284c7]/80 rounded-full flex items-center justify-center shadow-lg border-4 border-primary z-10">
-                          <span className="text-white text-lg md:text-xl font-bold">
-                            {startDate.getDate()}
+                    <div key={schedule.id}>
+                      {/* 날짜 그룹 헤더 */}
+                      {!isSameDateAsPrev && (
+                        <div className="flex items-center gap-2 pt-5 pb-2 first:pt-0">
+                          <span className="text-[15px] font-bold text-primary">
+                            {startDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
                           </span>
+                          {dday === 0 ? (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--icon-active)] text-[var(--accent-contrast)]">오늘</span>
+                          ) : dday === 1 ? (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-secondary text-primary">내일</span>
+                          ) : dday > 1 ? (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-secondary text-secondary">D-{dday}</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-secondary text-secondary">지난 일정</span>
+                          )}
                         </div>
                       )}
                       
-                      {/* 일정 카드 */}
-                      <div className="bg-gradient-to-br from-secondary/50 via-secondary/30 to-secondary/50 rounded-2xl p-5 md:p-6 border border-divider hover:border-[var(--icon-active)]/50 hover:shadow-xl transition-all duration-300 group">
-                        <div className="flex items-start justify-between mb-4">
+                      {/* 일정 카드 — 컴팩트 */}
+                      <div className={`bg-secondary/70 rounded-2xl p-4 hover:bg-secondary transition-colors group ${isPast ? 'opacity-60' : ''}`}>
+                        <div className="flex items-start justify-between mb-2">
                           <div className="flex-1 min-w-0">
-                            <h3 className="text-xl md:text-2xl font-bold text-primary mb-2 group-hover:text-[var(--icon-active)] transition-colors">
+                            <h3 className="text-[16px] font-bold text-primary mb-1">
                               {schedule.title}
                             </h3>
                             <div className="flex flex-col md:flex-row md:items-center md:space-x-4 space-y-1 md:space-y-0">
@@ -978,54 +975,33 @@ export default function ChatSchedule({
                         </div>
                         
                         {schedule.memo && (
-                          <div className="mb-4 p-4 bg-primary/50 rounded-xl border border-divider">
-                            <p className="text-sm text-primary whitespace-pre-wrap leading-relaxed">
+                          <div className="mb-3 px-3 py-2.5 bg-primary/40 rounded-xl">
+                            <p className="text-[13px] text-primary whitespace-pre-wrap leading-relaxed">
                               {schedule.memo}
                             </p>
                           </div>
                         )}
                         
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-4 border-t border-divider">
-                          <div className="flex items-center space-x-3">
-                            <div className="flex items-center space-x-2 text-sm text-secondary">
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                              </svg>
-                              <span className="font-medium">{t('schedule.createdBy')}:</span>
-                              <span className="px-2 py-1 bg-[var(--icon-active)]/20 text-[var(--icon-active)] rounded-lg font-semibold">
-                                {schedule.creator?.name || 
-                                 actualRoomParticipants.find(rp => rp.id === schedule.createdBy)?.name || 
-                                 schedule.createdBy || 
-                                 t('schedule.unknown')}
-                              </span>
-                            </div>
-                          </div>
+                        {/* 메타 한 줄: 작성자 · 참여자 */}
+                        <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-secondary">
+                          <span className="font-medium text-[var(--icon-active)]">
+                            {schedule.creator?.name ||
+                             actualRoomParticipants.find(rp => rp.id === schedule.createdBy)?.name ||
+                             t('schedule.unknown')}
+                          </span>
                           {schedule.participants && schedule.participants.length > 0 && (
-                            <div className="flex items-center space-x-2">
-                              <span className="text-sm text-secondary font-medium">{t('schedule.participants')}:</span>
-                              <div className="flex items-center space-x-1.5 flex-wrap gap-1.5">
-                                {schedule.participants.slice(0, 5).map((p) => {
-                                  // 참여자 이름 찾기: user 객체가 있으면 사용, 없으면 actualRoomParticipants에서 찾기
-                                  const participantName = p.user?.name || 
-                                    actualRoomParticipants.find(rp => rp.id === p.userId)?.name || 
-                                    p.userId || 
-                                    t('schedule.unknown')
-                                  return (
-                                    <span 
-                                      key={p.id} 
-                                      className="px-2.5 py-1 bg-secondary text-primary rounded-lg text-sm font-medium border border-divider"
-                                    >
-                                      {participantName}
-                                    </span>
-                                  )
-                                })}
-                                {schedule.participants.length > 5 && (
-                                  <span className="px-2.5 py-1 bg-secondary text-secondary rounded-lg text-sm font-medium border border-divider">
-                                    +{schedule.participants.length - 5}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                            <>
+                              <span>·</span>
+                              <span>
+                                {schedule.participants.slice(0, 3).map((p) =>
+                                  p.user?.name ||
+                                  actualRoomParticipants.find(rp => rp.id === p.userId)?.name ||
+                                  t('schedule.unknown')
+                                ).join(', ')}
+                                {schedule.participants.length > 3 && ` 외 ${schedule.participants.length - 3}명`}
+                                {' 참여'}
+                              </span>
+                            </>
                           )}
                         </div>
                       </div>
