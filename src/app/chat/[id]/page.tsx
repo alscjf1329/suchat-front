@@ -2042,7 +2042,11 @@ export default function ChatRoomPage() {
 
   const formatTime = (date: Date) => {
     const d = new Date(date)
-    return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleTimeString('ko-KR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    })
   }
 
   const formatFileSize = (bytes: number) => {
@@ -2197,7 +2201,7 @@ export default function ChatRoomPage() {
           <div className={`text-xs mt-1 flex items-center gap-1 ${
             isMyMessage ? 'text-blue-100' : 'text-secondary'
           }`}>
-            <span>{formatTime(msg.timestamp)}</span>
+            <span suppressHydrationWarning>{formatTime(msg.timestamp)}</span>
             {msg.isPending && <span className="animate-pulse">전송 중...</span>}
             {msg.isFailed && <span className="text-red-300">전송 실패</span>}
           </div>
@@ -2374,8 +2378,8 @@ export default function ChatRoomPage() {
                 <div key={msg.tempId || msg.id}>
                   {isNewDay && (
                     <div className="flex items-center justify-center py-3">
-                      <span className="px-4 py-1.5 bg-secondary rounded-full text-xs text-secondary">
-                        {cur.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                      <span suppressHydrationWarning className="px-4 py-1.5 bg-secondary rounded-full text-xs text-secondary">
+                        {cur.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}
                       </span>
                     </div>
                   )}

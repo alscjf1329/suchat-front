@@ -455,6 +455,7 @@ export default function ChatSchedule({
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     })
   }, [parseDateFromString])
 
@@ -465,6 +466,7 @@ export default function ChatSchedule({
       year: 'numeric',
       month: 'long',
       day: 'numeric',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     })
   }, [parseDateFromString])
 
@@ -474,6 +476,7 @@ export default function ChatSchedule({
     return date.toLocaleTimeString('ko-KR', {
       hour: '2-digit',
       minute: '2-digit',
+      timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     })
   }, [parseDateFromString])
 
@@ -912,8 +915,8 @@ export default function ChatSchedule({
                       {/* 날짜 그룹 헤더 */}
                       {!isSameDateAsPrev && (
                         <div className="flex items-center gap-2 pt-5 pb-2 first:pt-0">
-                          <span className="text-[15px] font-bold text-primary">
-                            {startDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}
+                          <span suppressHydrationWarning className="text-[15px] font-bold text-primary">
+                            {startDate.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short', timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone })}
                           </span>
                           {dday === 0 ? (
                             <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[var(--icon-active)] text-[var(--accent-contrast)]">오늘</span>

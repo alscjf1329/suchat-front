@@ -242,18 +242,22 @@ export default function ChatListPage() {
 
   const formatTime = (date: Date) => {
     // 카톡 스타일: 오늘은 시각, 어제는 '어제', 그 외는 날짜
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
     const d = new Date(date)
     const now = new Date()
-    if (d.toDateString() === now.toDateString()) {
-      return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' })
+    const dStr = d.toLocaleDateString('ko-KR', { timeZone: tz })
+    const nowStr = now.toLocaleDateString('ko-KR', { timeZone: tz })
+    if (dStr === nowStr) {
+      return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', timeZone: tz })
     }
     const yesterday = new Date(now)
     yesterday.setDate(now.getDate() - 1)
-    if (d.toDateString() === yesterday.toDateString()) return '어제'
+    const yStr = yesterday.toLocaleDateString('ko-KR', { timeZone: tz })
+    if (dStr === yStr) return '어제'
     if (d.getFullYear() === now.getFullYear()) {
-      return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })
+      return d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', timeZone: tz })
     }
-    return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric' })
+    return d.toLocaleDateString('ko-KR', { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: tz })
   }
 
   return (
@@ -436,7 +440,7 @@ export default function ChatListPage() {
                     <h3 className="text-[16px] font-semibold text-primary truncate">
                       {room.name}
                     </h3>
-                    <span className="text-[12px] text-secondary ml-2 flex-shrink-0">
+                    <span suppressHydrationWarning className="text-[12px] text-secondary ml-2 flex-shrink-0">
                       {formatTime(room.lastMessageAt || room.updatedAt)}
                     </span>
                   </div>
