@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Docker 배포용 standalone 빌드 (node_modules 없이 실행 가능한 최소 산출물)
+  output: 'standalone',
+
   // 성능 최적화 (swcMinify는 Next 15부터 기본이라 옵션 제거됨)
   reactStrictMode: true,
   
